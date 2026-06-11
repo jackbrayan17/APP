@@ -1,0 +1,29 @@
+{% extends "client/base.html" %}
+{% block title %}Mes commandes — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5">
+  <h1 class="text-2xl font-extrabold text-gray-900">Mes commandes</h1>
+</div>
+
+<div class="px-4 mt-4 space-y-3">
+  {% for order in orders %}
+  <a href="{% url 'orders:detail' order.number %}" class="block rounded-2xl border border-gray-100 p-4 shadow-sm">
+    <div class="flex items-start justify-between">
+      <div>
+        <h2 class="font-bold text-gray-900">{{ order.restaurant.name }}</h2>
+        <p class="text-gray-500 text-sm mt-1">{{ order.item_count }} article{{ order.item_count|pluralize }} • {{ order.total }} {{ CURRENCY }}</p>
+      </div>
+      {% include "client/_status_badge.html" with status=order.status label=order.status_label %}
+    </div>
+    <p class="text-gray-400 text-sm mt-3">{{ order.created_at|date:"d M, H:i" }}</p>
+  </a>
+  {% empty %}
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <div class="text-6xl">📦</div>
+    <h2 class="mt-4 text-lg font-bold text-gray-900">Aucune commande</h2>
+    <p class="text-gray-500 mt-1">Vos commandes apparaîtront ici.</p>
+    <a href="{% url 'core:home' %}" class="mt-6 px-6 py-3 rounded-xl bg-brand text-white font-bold">Commander</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

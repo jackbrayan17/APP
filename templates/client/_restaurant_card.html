@@ -1,0 +1,24 @@
+{% load static %}
+<a href="{% url 'restaurants:detail' r.slug %}"
+   class="flex gap-3 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-[.99] transition">
+  <div class="w-[84px] h-[84px] rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+    {% if r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">
+    {% elif r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">{% endif %}
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-start justify-between gap-2">
+      <h3 class="font-bold text-gray-900 leading-tight">{{ r.name }}
+        {% if r.is_pro %}<span class="align-middle ml-1 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">PRO</span>{% endif %}
+      </h3>
+      {% if r.tagline %}<span class="flex-shrink-0 text-brand text-xs font-bold border border-brand/30 bg-brand-50 px-2 py-0.5 rounded-full">{{ r.tagline }}</span>{% endif %}
+    </div>
+    {% if r.bio %}<p class="text-sm text-gray-500 mt-1 line-clamp-1">{{ r.bio|truncatechars:48 }}</p>{% endif %}
+    <div class="flex items-center gap-3 mt-2 text-sm">
+      <span class="flex items-center gap-1 font-semibold text-gray-900">
+        <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+        {{ r.rating_label }}</span>
+      <span class="flex items-center gap-1 text-gray-500">🕐 {{ r.delivery_time_label }}</span>
+      <span class="text-gray-500">{{ r.delivery_fee }} {{ CURRENCY }}</span>
+    </div>
+  </div>
+</a>

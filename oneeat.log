@@ -1,0 +1,3 @@
+INFO 2026-06-12 00:31:13,464 middleware GET / -> 200
+INFO 2026-06-12 00:31:13,761 middleware GET /connexion/ -> 500
+INFO 2026-06-12 00:31:14,324 middleware GET /api/restaurants/ -> 200

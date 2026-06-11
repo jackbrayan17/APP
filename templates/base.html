@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FF6B1A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ONE EAT">
+  <title>{% block title %}ONE EAT — Livraison à Douala{% endblock %}</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
+  <link rel="icon" href="{% static 'icons/icon-192.png' %}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          brand: { DEFAULT: '#FF6B1A', 50:'#FFF1E8', 100:'#FFE0CC', 600:'#F2580A', 700:'#D94807' },
+        },
+        fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
+      }}
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    html,body{ -webkit-tap-highlight-color:transparent; }
+    body{ font-family:'Inter',system-ui,sans-serif; background:#f8f8f8; }
+    .no-scrollbar::-webkit-scrollbar{ display:none; }
+    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    .app-shell{ max-width:480px; margin:0 auto; background:#fff; min-height:100dvh;
+      position:relative; box-shadow:0 0 40px rgba(0,0,0,.06); }
+    .safe-bottom{ padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+    [x-cloak]{ display:none !important; }
+    @keyframes pop { 0%{transform:scale(.9)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    .pop{ animation:pop .25s ease; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full">
+  <div class="app-shell {% block shell_class %}{% endblock %}">
+    {% if messages %}
+    <div class="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[440px] space-y-2"
+         x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,3500)" x-cloak>
+      {% for m in messages %}
+      <div class="px-4 py-3 rounded-xl shadow-lg text-sm font-medium
+        {% if m.tags == 'error' %}bg-red-600 text-white{% elif m.tags == 'success' %}bg-green-600 text-white{% else %}bg-gray-900 text-white{% endif %}">
+        {{ m }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% block body %}{% endblock %}
+  </div>
+
+  {% block scripts %}{% endblock %}
+  <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>

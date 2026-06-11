@@ -1,0 +1,37 @@
+{% extends "client/base.html" %}
+{% block title %}Noter — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5" x-data="{ rating:5, driverRating:5 }">
+  <h1 class="text-2xl font-extrabold text-gray-900">Notez votre commande</h1>
+  <p class="text-gray-500 mt-1">{{ order.restaurant.name }} • {{ order.number }}</p>
+
+  <form method="post" class="mt-6 space-y-5">
+    {% csrf_token %}
+    <div>
+      <p class="font-bold text-gray-900 mb-2">Le restaurant</p>
+      <div class="flex gap-2">
+        <template x-for="i in 5" :key="i">
+          <button type="button" @click="rating=i" class="text-4xl" :class="i<=rating?'opacity-100':'opacity-30'">⭐</button>
+        </template>
+      </div>
+      <input type="hidden" name="rating" :value="rating">
+    </div>
+    {% if order.driver %}
+    <div>
+      <p class="font-bold text-gray-900 mb-2">Le livreur ({{ order.driver.display_name }})</p>
+      <div class="flex gap-2">
+        <template x-for="i in 5" :key="i">
+          <button type="button" @click="driverRating=i" class="text-4xl" :class="i<=driverRating?'opacity-100':'opacity-30'">⭐</button>
+        </template>
+      </div>
+      <input type="hidden" name="driver_rating" :value="driverRating">
+    </div>
+    {% endif %}
+    <div>
+      <p class="font-bold text-gray-900 mb-2">Votre commentaire</p>
+      <textarea name="comment" rows="4" placeholder="Partagez votre expérience..." class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></textarea>
+    </div>
+    <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30">Envoyer mon avis</button>
+  </form>
+</div>
+{% endblock %}

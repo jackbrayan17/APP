@@ -1,0 +1,77 @@
+{% extends "client/base.html" %}
+{% block title %}Commande {{ order.number }} — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-4">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'orders:list' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg></a>
+    <div>
+      <h1 class="text-lg font-extrabold text-gray-900">Commande {{ order.number }}</h1>
+      <p class="text-xs text-gray-400">{{ order.created_at|date:"d M Y, H:i" }}</p>
+    </div>
+  </div>
+
+  <!-- Suivi statut -->
+  <div class="mt-5 rounded-2xl bg-gray-50 p-4">
+    <div class="flex items-center justify-between mb-3">
+      <span class="font-bold text-gray-900">{{ order.restaurant.name }}</span>
+      {% include "client/_status_badge.html" with status=order.status label=order.status_label %}
+    </div>
+    {% with s=order.status %}
+    <div class="flex items-center justify-between text-[10px] font-semibold text-gray-400">
+      {% for step,lbl in steps %}
+      <div class="flex-1 flex flex-col items-center">
+        <div class="w-3 h-3 rounded-full {% if step in done_steps %}bg-brand{% else %}bg-gray-300{% endif %}"></div>
+        <span class="mt-1 {% if step in done_steps %}text-brand{% endif %}">{{ lbl }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endwith %}
+    {% if order.status == 'on_the_way' %}
+    <a href="{% url 'delivery:order_map' order.number %}" class="mt-4 block text-center py-3 rounded-xl bg-brand text-white font-bold text-sm">📍 Suivre la livraison en direct</a>
+    {% endif %}
+  </div>
+
+  <!-- Articles -->
+  <div class="mt-4">
+    <h2 class="font-bold text-gray-900 mb-2">Articles</h2>
+    <div class="space-y-2">
+      {% for item in order.items.all %}
+      <div class="flex justify-between text-sm">
+        <span class="text-gray-700">{{ item.quantity }}× {{ item.name }}</span>
+        <span class="font-semibold">{{ item.line_total }} {{ CURRENCY }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm">
+      <div class="flex justify-between text-gray-500"><span>Sous-total</span><span>{{ order.items_total }} {{ CURRENCY }}</span></div>
+      <div class="flex justify-between text-gray-500"><span>Livraison</span><span>{{ order.delivery_fee }} {{ CURRENCY }}</span></div>
+      {% if order.discount %}<div class="flex justify-between text-green-600"><span>Réduction ({{ order.promo_code }})</span><span>−{{ order.discount }} {{ CURRENCY }}</span></div>{% endif %}
+      <div class="flex justify-between font-extrabold text-base pt-2 border-t border-gray-100"><span>Total</span><span class="text-brand">{{ order.total }} {{ CURRENCY }}</span></div>
+    </div>
+  </div>
+
+  <div class="mt-4 rounded-xl bg-gray-50 p-4 text-sm">
+    <p class="text-gray-400 text-xs font-semibold uppercase">Livraison</p>
+    <p class="text-gray-700 mt-1">📍 {{ order.delivery_address|default:"Non précisée" }}</p>
+    <p class="text-gray-700 mt-1">💳 {{ order.get_payment_method_display }}</p>
+    {% if order.driver %}<p class="text-gray-700 mt-1">🛵 {{ order.driver.display_name }}</p>{% endif %}
+  </div>
+
+  <!-- Actions -->
+  <div class="mt-4 space-y-2">
+    {% if order.can_review %}
+    <a href="{% url 'orders:review' order.number %}" class="block text-center py-3.5 rounded-xl bg-brand text-white font-bold">⭐ Noter cette commande</a>
+    {% endif %}
+    <button onclick="shareOrder()" class="w-full py-3.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold">🔗 Partager la commande</button>
+  </div>
+</div>
+
+<script>
+function shareOrder(){
+  const url = location.origin + "{% url 'orders:share' order.share_token %}";
+  if(navigator.share){ navigator.share({title:'Ma commande ONE EAT', url}); }
+  else { navigator.clipboard.writeText(url); alert('Lien copié : '+url); }
+}
+</script>
+{% endblock %}

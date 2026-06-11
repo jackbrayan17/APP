@@ -1,0 +1,43 @@
+{% extends "client/base.html" %}
+{% block title %}Mon profil — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5">
+  <div class="flex items-center gap-4">
+    <div class="w-16 h-16 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center">{{ user.initials }}</div>
+    <div>
+      <h1 class="text-xl font-extrabold text-gray-900">{{ user.display_name }}</h1>
+      <p class="text-gray-500 text-sm">{{ user.email }}</p>
+      <span class="inline-block mt-1 text-xs font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-full">{{ user.get_role_display }}</span>
+    </div>
+  </div>
+
+  <div class="mt-6 grid grid-cols-2 gap-2">
+    <a href="{% url 'orders:list' %}" class="p-4 rounded-2xl bg-gray-50 text-center"><p class="text-2xl font-extrabold text-brand">{{ user.orders.count }}</p><p class="text-xs text-gray-500">Commandes</p></a>
+    <button onclick="OE.enablePush('{{ VAPID_PUBLIC_KEY }}')" class="p-4 rounded-2xl bg-gray-50 text-center">
+      <p class="text-2xl">🔔</p><p class="text-xs text-gray-500">Activer notifications</p></button>
+  </div>
+
+  <form method="post" class="mt-6 space-y-3" x-data="{
+    locate(){ OE.getLocation().then(p=>{ this.$refs.lat.value=p.lat; this.$refs.lng.value=p.lng; this.$refs.addr.placeholder='Position GPS enregistrée ✅'; }); }
+  }">
+    {% csrf_token %}
+    <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
+    <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
+    <div class="grid grid-cols-2 gap-3">
+      <input name="first_name" value="{{ user.first_name }}" placeholder="Prénom" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+      <input name="last_name" value="{{ user.last_name }}" placeholder="Nom" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    </div>
+    <input name="phone" value="{{ user.phone }}" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <button type="button" @click="locate" class="w-full py-3 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Utiliser ma position actuelle</button>
+    <button type="submit" class="w-full py-3.5 rounded-xl bg-brand text-white font-bold">Enregistrer</button>
+  </form>
+
+  {% if user.is_restaurant %}<a href="{% url 'restaurants:dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Restaurant</a>{% endif %}
+  {% if user.is_driver %}<a href="{% url 'delivery:dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Livreur</a>{% endif %}
+  {% if user.is_influencer %}<a href="{% url 'promotions:influencer_dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Influenceur</a>{% endif %}
+  {% if user.is_staff %}<a href="{% url 'core:admin_dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Tableau de bord Admin</a>{% endif %}
+
+  <a href="{% url 'accounts:logout' %}" class="mt-3 block text-center py-3 rounded-xl bg-red-50 text-red-600 font-bold">Se déconnecter</a>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "client/base.html" %}
+{% block title %}Panier — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5">
+  <h1 class="text-2xl font-extrabold text-gray-900">Mon panier</h1>
+</div>
+
+{% if groups %}
+<div class="px-4 mt-4 space-y-5" x-data="{ total: {{ total }} }">
+  {% for rid, g in groups.items %}
+  <div class="rounded-2xl border border-gray-100 p-4">
+    <h2 class="font-bold text-gray-900">{{ g.name }}</h2>
+    <div class="mt-3 space-y-3">
+      {% for item in g.items %}
+      <div class="flex items-center gap-3" x-data="{ qty: {{ item.qty }} }">
+        <div class="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+          {% if item.image %}<img src="{{ item.image }}" class="w-full h-full object-cover">{% else %}<div class="w-full h-full flex items-center justify-center">🍽️</div>{% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-900 text-sm leading-tight">{{ item.name }}</p>
+          <p class="text-brand font-bold text-sm mt-0.5">{{ item.price }} {{ CURRENCY }}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button @click="qty=Math.max(0,qty-1); update({{ item.id }}, qty)" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600">−</button>
+          <span class="w-5 text-center font-bold" x-text="qty"></span>
+          <button @click="qty++; update({{ item.id }}, qty)" class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold">+</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-3 pt-3 border-t border-gray-50 flex justify-between text-sm">
+      <span class="text-gray-500">Sous-total</span>
+      <span class="font-bold">{{ g.subtotal }} {{ CURRENCY }}</span>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if user.is_authenticated %}
+  <form method="post" action="{% url 'orders:checkout' %}" class="space-y-3"
+        x-data="{ locate(){ OE.getLocation().then(p=>{ $refs.lat.value=p.lat; $refs.lng.value=p.lng; $refs.addr.value='📍 Position GPS ('+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+')'; }); } }">
+    {% csrf_token %}
+    <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
+    <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
+    <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" required class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <button type="button" @click="locate" class="w-full py-2.5 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Localiser ma position</button>
+    <select name="payment_method" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+      <option value="cash">Espèces à la livraison</option>
+      <option value="momo">MTN Mobile Money</option>
+      <option value="om">Orange Money</option>
+      <option value="card">Carte bancaire</option>
+    </select>
+    <input name="promo_code" placeholder="Code promo (optionnel)" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none uppercase">
+
+    <div class="rounded-2xl bg-gray-50 p-4 space-y-2">
+      <div class="flex justify-between text-gray-500 text-sm"><span>Sous-total</span><span>{{ total }} {{ CURRENCY }}</span></div>
+      <div class="flex justify-between text-gray-500 text-sm"><span>Livraison</span><span>variable / resto</span></div>
+      <div class="flex justify-between font-extrabold text-lg pt-2 border-t border-gray-200"><span>Total articles</span><span class="text-brand">{{ total }} {{ CURRENCY }}</span></div>
+    </div>
+    <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold text-[15px] shadow-lg shadow-brand/30">Commander maintenant</button>
+  </form>
+  {% else %}
+  <a href="{% url 'accounts:login' %}?next={% url 'orders:cart' %}" class="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center">Se connecter pour commander</a>
+  {% endif %}
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center px-8">
+  <div class="text-6xl">🛒</div>
+  <h2 class="mt-4 text-lg font-bold text-gray-900">Votre panier est vide</h2>
+  <p class="text-gray-500 mt-1">Ajoutez des plats pour commencer.</p>
+  <a href="{% url 'core:home' %}" class="mt-6 px-6 py-3 rounded-xl bg-brand text-white font-bold">Explorer les restaurants</a>
+</div>
+{% endif %}
+
+<script>
+function update(id, qty){
+  fetch(`/panier/modifier/${id}/`, { method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':OE.csrftoken},
+    body:`qty=${qty}` })
+    .then(r=>r.json()).then(d=>{ OE.updateCartBadge(d.count); if(qty===0) location.reload(); else setTimeout(()=>location.reload(),300); });
+}
+</script>
+{% endblock %}

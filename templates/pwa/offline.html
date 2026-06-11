@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="min-h-[100dvh] flex flex-col items-center justify-center text-center px-8">
+  <div class="w-20 h-20 rounded-full bg-brand text-white text-2xl font-bold flex items-center justify-center">OE</div>
+  <h1 class="mt-6 text-xl font-extrabold text-gray-900">Vous êtes hors-ligne</h1>
+  <p class="mt-2 text-gray-500">Vérifiez votre connexion internet puis réessayez.</p>
+  <button onclick="location.reload()" class="mt-6 px-6 py-3 rounded-xl bg-brand text-white font-bold">Réessayer</button>
+</div>
+{% endblock %}

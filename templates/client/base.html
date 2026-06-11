@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block shell_class %}safe-bottom{% endblock %}
+
+{% block body %}
+<main class="min-h-[100dvh]">
+  {% block content %}{% endblock %}
+</main>
+
+{% include "client/_bottom_nav.html" %}
+{% endblock %}

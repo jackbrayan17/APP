@@ -1,0 +1,43 @@
+{% extends "client/base.html" %}
+{% block title %}Explorer — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5">
+  <h1 class="text-2xl font-extrabold text-gray-900">Explorer</h1>
+
+  <form method="get" class="mt-4 relative">
+    <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+    <input name="q" value="{{ q }}" type="search" placeholder="Rechercher un plat ou restaurant..."
+           class="w-full h-14 pl-12 pr-4 rounded-2xl bg-gray-100 text-[15px] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30">
+  </form>
+
+  <div class="mt-4 flex gap-2 overflow-x-auto no-scrollbar">
+    <a href="?q={{ q }}" class="flex-shrink-0 px-5 py-2 rounded-full text-sm font-bold {% if hood == 'Tous' %}bg-brand text-white{% else %}bg-gray-100 text-gray-600{% endif %}">Tous</a>
+    {% for h in hoods %}
+    <a href="?q={{ q }}&hood={{ h }}" class="flex-shrink-0 px-5 py-2 rounded-full text-sm font-bold {% if hood == h %}bg-brand text-white{% else %}bg-gray-100 text-gray-600{% endif %}">{{ h }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="px-4 mt-4 space-y-4">
+  {% for r in restaurants %}
+  <a href="{% url 'restaurants:detail' r.slug %}" class="block">
+    <div class="relative h-[200px] rounded-2xl overflow-hidden bg-gray-200">
+      {% if r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover">
+      {% elif r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover">
+      {% else %}<div class="w-full h-full bg-gradient-to-br from-brand to-orange-300"></div>{% endif %}
+      <span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-brand text-white text-xs font-bold">{% if r.is_featured %}Populaire{% else %}{{ r.tagline|default:"Restaurant" }}{% endif %}</span>
+    </div>
+    <div class="mt-2">
+      <h3 class="font-bold text-gray-900 text-lg">{{ r.name }}</h3>
+      <div class="flex items-center gap-3 mt-1 text-sm text-gray-500">
+        <span class="flex items-center gap-1 font-semibold text-gray-700">⭐ {{ r.rating_label }}</span>
+        <span class="flex items-center gap-1">🕐 {{ r.delivery_time_label }}</span>
+        {% if r.neighborhood %}<span class="flex items-center gap-1">📍 {{ r.neighborhood }}</span>{% endif %}
+      </div>
+    </div>
+  </a>
+  {% empty %}
+  <p class="text-center text-gray-400 py-12">Aucun résultat pour « {{ q }} ».</p>
+  {% endfor %}
+</div>
+{% endblock %}

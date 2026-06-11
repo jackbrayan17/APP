@@ -1,0 +1,87 @@
+{% extends "client/base.html" %}
+{% load static %}
+{% block title %}{{ resto.name }} — ONE EAT{% endblock %}
+{% block head %}<style>:root{ --resto:{{ resto.brand_color }}; --resto-50:{{ resto.accent_color }}; }</style>{% endblock %}
+
+{% block content %}
+<div x-data="{ section: '{% if sections.0 %}sec-{{ sections.0.id }}{% endif %}', fav:false }">
+  <!-- Cover -->
+  <div class="relative h-[300px] bg-gray-200">
+    {% if resto.cover_image %}<img src="{{ resto.cover_image.url }}" class="w-full h-full object-cover">
+    {% elif resto.logo %}<img src="{{ resto.logo.url }}" class="w-full h-full object-cover">
+    {% else %}<div class="w-full h-full bg-gradient-to-br from-brand to-orange-300"></div>{% endif %}
+    <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10"></div>
+
+    <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
+      <a href="{% url 'core:home' %}" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow">
+        <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+      </a>
+      <div class="flex gap-2">
+        <a href="{% url 'restaurants:share' resto.share_token %}" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow">
+          <svg class="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/></svg>
+        </a>
+        <button @click="fav=!fav" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow">
+          <svg class="w-6 h-6" :class="fav?'text-red-500':'text-gray-800'" :fill="fav?'currentColor':'none'" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="absolute bottom-5 left-5 right-5 text-white">
+      {% if resto.is_pro %}<span class="inline-block mb-2 text-[11px] font-bold bg-blue-500 px-2 py-1 rounded-full">⭐ PRO</span>{% endif %}
+      <h1 class="text-3xl font-extrabold drop-shadow">{{ resto.name }}</h1>
+      <div class="flex items-center gap-3 mt-2 text-[15px]">
+        <span class="flex items-center gap-1 font-semibold">
+          <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          {{ resto.rating_label }} {% if resto.is_elite %}<span class="text-yellow-300 font-bold">élite</span>{% endif %}
+        </span>
+        <span class="flex items-center gap-1">🕐 {{ resto.delivery_time_label }}</span>
+      </div>
+    </div>
+  </div>
+
+  {% if resto.bio %}<p class="px-5 pt-4 text-sm text-gray-500">{{ resto.bio }}</p>{% endif %}
+
+  <!-- Onglets sections -->
+  {% if sections %}
+  <div class="sticky top-0 bg-white z-30 pt-3 pb-2 mt-2 border-b border-gray-50">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar px-4">
+      {% for s in sections %}
+      <button @click="section='sec-{{ s.id }}'; document.getElementById('sec-{{ s.id }}').scrollIntoView({behavior:'smooth',block:'start'})"
+              :class="section==='sec-{{ s.id }}' ? 'text-white' : 'bg-gray-100 text-gray-600'"
+              :style="section==='sec-{{ s.id }}' ? 'background:{{ resto.brand_color }}' : ''"
+              class="flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition">{{ s.name }}</button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Plats par section -->
+  <div class="px-4 pb-6">
+    {% for s in sections %}
+    <div id="sec-{{ s.id }}" class="pt-4 scroll-mt-20">
+      <h2 class="font-extrabold text-lg text-gray-900 mb-1">{{ s.name }}</h2>
+      {% for dish in s.dishes.all %}{% if dish.is_available %}
+        {% include "client/_dish_row.html" with dish=dish %}
+      {% endif %}{% endfor %}
+    </div>
+    {% endfor %}
+    {% for dish in unsectioned %}{% include "client/_dish_row.html" with dish=dish %}{% endfor %}
+  </div>
+
+  <!-- Avis -->
+  {% if reviews %}
+  <div class="px-5 pb-8">
+    <h2 class="font-extrabold text-lg text-gray-900 mb-3">Avis clients ({{ resto.rating_count }})</h2>
+    {% for rev in reviews %}
+    <div class="py-3 border-b border-gray-50">
+      <div class="flex items-center justify-between">
+        <span class="font-semibold text-gray-800 text-sm">{{ rev.customer.display_name }}</span>
+        <span class="text-yellow-400 text-sm">{% for i in "12345" %}{% if forloop.counter <= rev.rating %}★{% else %}<span class="text-gray-200">★</span>{% endif %}{% endfor %}</span>
+      </div>
+      {% if rev.comment %}<p class="text-sm text-gray-500 mt-1">{{ rev.comment }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
