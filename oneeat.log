@@ -57,3 +57,13 @@ INFO 2026-06-12 00:48:01,603 middleware POST /panier/ajouter/39/ -> 200
 INFO 2026-06-12 00:48:02,590 middleware GET /panier/ -> 200
 INFO 2026-06-12 00:48:05,952 middleware GET /connexion/ -> 200
 INFO 2026-06-12 00:48:15,165 middleware GET /inscription/ -> 200
+INFO 2026-06-12 00:53:45,522 middleware GET /connexion/ -> 200
+INFO 2026-06-12 00:53:46,482 middleware POST /connexion/ -> 302
+INFO 2026-06-12 00:53:49,240 middleware POST /panier/ajouter/47/ -> 403
+INFO 2026-06-12 00:53:51,329 middleware GET /panier/ -> 200
+INFO 2026-06-12 00:53:51,714 middleware POST /commander/ -> 403
+INFO 2026-06-12 00:54:24,540 middleware GET /connexion/ -> 200
+INFO 2026-06-12 00:54:25,475 middleware POST /connexion/ -> 302
+INFO 2026-06-12 00:54:28,756 middleware POST /panier/ajouter/47/ -> 200
+INFO 2026-06-12 00:54:31,642 services VAPID non configure — push ignore pour Burger House Bali
+INFO 2026-06-12 00:54:31,642 middleware POST /commander/ -> 302
