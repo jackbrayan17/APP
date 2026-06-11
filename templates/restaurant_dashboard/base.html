@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load static %}
+{% block shell_class %}safe-bottom{% endblock %}
+{% block body %}
+<header class="px-4 pt-4 pb-3 sticky top-0 bg-white z-30 border-b border-gray-50">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="w-9 h-9 rounded-lg bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{{ resto.name|slice:":2"|upper }}</div>
+      <div class="min-w-0">
+        <p class="text-[11px] text-gray-400 leading-none">Espace Restaurant</p>
+        <h1 class="font-extrabold text-gray-900 truncate">{{ resto.name }}</h1>
+      </div>
+    </div>
+    <a href="{% url 'accounts:profile' %}" class="text-gray-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg></a>
+  </div>
+</header>
+
+<main class="px-4 py-4 min-h-[60dvh]">{% block dash %}{% endblock %}</main>
+
+{% with active=request.resolver_match.url_name %}
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-100 z-40" style="padding-bottom:env(safe-area-inset-bottom)">
+  <div class="grid grid-cols-6 h-[64px] text-[10px] font-semibold">
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:dashboard' label='Accueil' icon='home' active=active %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:menu' label='Menu' icon='menu' active=active %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:orders' label='Commandes' icon='orders' active=active %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:promos' label='Promos' icon='promo' active=active %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:drivers' label='Livreurs' icon='driver' active=active %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:customize' label='Page' icon='edit' active=active %}
+  </div>
+</nav>
+{% endwith %}
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Espace Influenceur — ONE EAT{% endblock %}
+{% block body %}
+<div class="px-4 pt-5 pb-12">
+  <div class="flex items-center gap-3">
+    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 to-brand text-white font-bold flex items-center justify-center">{{ user.initials }}</div>
+    <div>
+      <h1 class="text-xl font-extrabold text-gray-900">{{ profile.handle|default:user.display_name }}</h1>
+      <p class="text-gray-500 text-sm">{{ profile.followers }} abonnés</p>
+    </div>
+  </div>
+
+  <div class="mt-5 grid grid-cols-3 gap-2">
+    <div class="rounded-2xl bg-brand text-white p-4 text-center"><p class="text-2xl font-extrabold">{{ profile.reach_score }}</p><p class="text-[11px] opacity-90">Note portée /10</p></div>
+    <div class="rounded-2xl border border-gray-100 p-4 text-center"><p class="text-2xl font-extrabold text-gray-900">{{ profile.total_redemptions }}</p><p class="text-[11px] text-gray-500">Utilisations</p></div>
+    <div class="rounded-2xl border border-gray-100 p-4 text-center"><p class="text-lg font-extrabold text-gray-900">{{ profile.total_revenue }}</p><p class="text-[11px] text-gray-500">CA généré</p></div>
+  </div>
+
+  <form method="post" action="{% url 'promotions:code_create' %}" class="mt-6 rounded-2xl bg-gray-50 p-4 space-y-3">
+    {% csrf_token %}
+    <p class="font-bold text-gray-900">Créer un code promo</p>
+    <select name="restaurant" required class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+      <option value="">Restaurant partenaire…</option>
+      {% for r in restaurants %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+    </select>
+    <div class="grid grid-cols-3 gap-2">
+      <input name="code" placeholder="CODE" class="col-span-1 px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none uppercase">
+      <input name="percent" type="number" value="10" placeholder="%" class="px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+      <input name="max_uses" type="number" value="0" placeholder="Max (0=∞)" class="px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+    </div>
+    <button class="w-full py-3 rounded-xl bg-brand text-white font-bold">Générer le code</button>
+  </form>
+
+  <h2 class="mt-6 font-extrabold text-gray-900">Mes codes</h2>
+  <div class="mt-3 space-y-2">
+    {% for c in codes %}
+    <div class="flex items-center justify-between p-4 rounded-xl border border-gray-100">
+      <div>
+        <p class="font-extrabold text-gray-900 tracking-wider">{{ c.code }}</p>
+        <p class="text-xs text-gray-500">{{ c.restaurant.name }} • -{{ c.percent }}% • {{ c.uses }} utilisation(s)</p>
+      </div>
+      <span class="text-xs font-bold {% if c.is_valid %}text-green-600{% else %}text-gray-400{% endif %}">{% if c.is_valid %}Actif{% else %}Inactif{% endif %}</span>
+    </div>
+    {% empty %}<p class="text-gray-400 text-center py-6 text-sm">Aucun code pour le moment.</p>{% endfor %}
+  </div>
+  <a href="{% url 'accounts:logout' %}" class="mt-6 block text-center py-3 rounded-xl bg-red-50 text-red-600 font-bold text-sm">Déconnexion</a>
+</div>
+{% endblock %}

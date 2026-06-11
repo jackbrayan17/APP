@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Espace Livreur — ONE EAT{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>#map{ height:300px; border-radius:1rem; z-index:0; }</style>
+{% endblock %}
+{% block shell_class %}safe-bottom{% endblock %}
+{% block body %}
+<header class="px-4 pt-4 pb-3 flex items-center justify-between sticky top-0 bg-white z-30 border-b border-gray-50">
+  <div class="flex items-center gap-2">
+    <div class="w-9 h-9 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center">{{ user.initials }}</div>
+    <div><p class="text-[11px] text-gray-400 leading-none">Livreur</p><h1 class="font-extrabold text-gray-900">{{ user.display_name }}</h1></div>
+  </div>
+  <button id="availBtn" class="px-4 py-2 rounded-full text-sm font-bold {% if profile.is_available %}bg-green-100 text-green-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+    {% if profile.is_available %}● En ligne{% else %}○ Hors ligne{% endif %}
+  </button>
+</header>
+
+<main class="px-4 py-4">
+  <div class="grid grid-cols-3 gap-2 mb-4">
+    <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-brand">{{ available|length }}</p><p class="text-[11px] text-gray-500">Disponibles</p></div>
+    <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-gray-900">{{ my_active.count }}</p><p class="text-[11px] text-gray-500">En cours</p></div>
+    <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-gray-900">{{ delivered_count }}</p><p class="text-[11px] text-gray-500">Livrées</p></div>
+  </div>
+
+  <div id="map" class="mb-4 bg-gray-100"></div>
+  <p class="text-xs text-gray-400 mb-4">📍 Périmètre de {{ profile.service_radius_km }} km autour de votre position (Douala).</p>
+
+  {% if my_active %}
+  <h2 class="font-extrabold text-gray-900 mb-2">Mes livraisons en cours</h2>
+  <div class="space-y-2 mb-5">
+    {% for o in my_active %}
+    <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+      <p class="font-bold text-gray-900">{{ o.number }} — {{ o.restaurant.name }}</p>
+      <p class="text-sm text-gray-600 mt-1">📍 {{ o.delivery_address }}</p>
+      <div class="flex gap-2 mt-3">
+        <a href="{% url 'delivery:order_map' o.number %}" class="flex-1 text-center py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold">Voir carte</a>
+        <form method="post" action="{% url 'delivery:update_status' o.id %}" class="flex-1">{% csrf_token %}
+          <input type="hidden" name="status" value="{% if o.status == 'picked_up' %}on_the_way{% else %}delivered{% endif %}">
+          <button class="w-full py-2 rounded-lg bg-brand text-white text-sm font-bold">{% if o.status == 'picked_up' %}Démarrer{% else %}Livré ✓{% endif %}</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 class="font-extrabold text-gray-900 mb-2">Commandes à proximité</h2>
+  <div class="space-y-2">
+    {% for o in available %}
+    <div class="rounded-2xl border border-gray-100 p-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="font-bold text-gray-900">{{ o.restaurant.name }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">{{ o.number }} • {{ o.item_count }} article(s){% if o.distance_km %} • {{ o.distance_km }} km{% endif %}</p>
+        </div>
+        <span class="font-extrabold text-brand">{{ o.total }} FCFA</span>
+      </div>
+      <p class="text-sm text-gray-600 mt-1">📍 {{ o.delivery_address }}</p>
+      <form method="post" action="{% url 'delivery:accept' o.id %}" class="mt-3">{% csrf_token %}
+        <button class="w-full py-2.5 rounded-xl bg-gray-900 text-white font-bold text-sm">Accepter la course</button>
+      </form>
+    </div>
+    {% empty %}<p class="text-gray-400 text-center py-8 text-sm">Aucune commande disponible dans votre zone.</p>{% endfor %}
+  </div>
+  <a href="{% url 'accounts:logout' %}" class="mt-6 block text-center py-3 rounded-xl bg-red-50 text-red-600 font-bold text-sm">Déconnexion</a>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const orders = {{ map_orders_json|safe }};
+  const center = [{{ profile.current_lat|default:DOUALA_CENTER.lat }}, {{ profile.current_lng|default:DOUALA_CENTER.lng }}];
+  const map = L.map('map').setView(center, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+  const me = L.circleMarker(center, {radius:9, color:'#FF6B1A', fillColor:'#FF6B1A', fillOpacity:1}).addTo(map).bindPopup('Vous');
+  L.circle(center, {radius:{{ profile.service_radius_km }}*1000, color:'#FF6B1A', weight:1, fillOpacity:.05}).addTo(map);
+  orders.forEach(o => {
+    if(o.rlat && o.rlng){
+      L.marker([o.rlat, o.rlng]).addTo(map).bindPopup(`<b>${o.restaurant}</b><br>${o.total} FCFA${o.distance?'<br>'+o.distance+' km':''}`);
+    }
+  });
+
+  // Disponibilite
+  document.getElementById('availBtn').addEventListener('click', () => {
+    fetch("{% url 'delivery:toggle_available' %}", {method:'POST', headers:{'X-CSRFToken':OE.csrftoken}})
+      .then(r=>r.json()).then(()=>location.reload());
+  });
+
+  // Geolocalisation continue
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(pos => {
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      me.setLatLng([lat,lng]);
+      fetch("{% url 'delivery:update_location' %}", {method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':OE.csrftoken},
+        body: JSON.stringify({lat,lng})});
+    }, ()=>{}, {enableHighAccuracy:true});
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "restaurant_dashboard/base.html" %}
+{% block title %}Promotions — {{ resto.name }}{% endblock %}
+{% block dash %}
+<h2 class="font-extrabold text-lg text-gray-900">Promotions</h2>
+
+<form method="post" class="mt-4 rounded-2xl bg-gray-50 p-4 space-y-3">
+  {% csrf_token %}
+  <input name="title" required placeholder="Thème de la promo (ex: Black Friday)" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+  <textarea name="description" rows="2" placeholder="Description" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></textarea>
+  <div class="grid grid-cols-2 gap-3">
+    <select name="discount_type" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+      <option value="percent">Pourcentage (-%)</option>
+      <option value="amount">Réduction fixe (-FCFA)</option>
+      <option value="fixed_price">Prix promo (FCFA)</option>
+    </select>
+    <input name="discount_value" type="number" required placeholder="Valeur (ex 50, 75)" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+  </div>
+  <label class="block text-sm font-semibold text-gray-700">Fin de la promo
+    <input name="ends_at" type="datetime-local" class="mt-1 w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></label>
+  <input name="banner_color" type="color" value="#E53935" class="h-10 w-20 rounded">
+  <div>
+    <p class="text-sm font-semibold text-gray-700 mb-1">Plats concernés</p>
+    <div class="max-h-40 overflow-y-auto space-y-1 bg-white rounded-xl p-2 border border-gray-200">
+      {% for d in dishes %}
+      <label class="flex items-center gap-2 text-sm p-1"><input type="checkbox" name="dishes" value="{{ d.id }}"> {{ d.name }} — {{ d.price }} FCFA</label>
+      {% endfor %}
+    </div>
+  </div>
+  <button class="w-full py-3 rounded-xl bg-brand text-white font-bold">🎯 Lancer la promotion</button>
+</form>
+
+<div class="mt-5 space-y-2">
+  {% for p in promos %}
+  <div class="rounded-2xl border border-gray-100 p-4">
+    <div class="flex items-center justify-between">
+      <span class="font-bold text-gray-900">{{ p.title }}</span>
+      <span class="text-xs font-bold text-white px-2 py-1 rounded" style="background:{{ p.banner_color }}">{{ p.label }}</span>
+    </div>
+    <p class="text-sm text-gray-500 mt-1">{{ p.description }}</p>
+    <p class="text-xs text-gray-400 mt-2">{{ p.dishes.count }} plat(s) • {% if p.is_live %}<span class="text-green-600 font-bold">En cours</span>{% else %}Terminée/programmée{% endif %} • jusqu'au {{ p.ends_at|date:"d M H:i" }}</p>
+  </div>
+  {% empty %}<p class="text-gray-400 text-center py-8 text-sm">Aucune promotion.</p>{% endfor %}
+</div>
+{% endblock %}

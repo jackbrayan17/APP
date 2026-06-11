@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Créer mon restaurant — ONE EAT{% endblock %}
+{% block body %}
+<div class="px-6 pt-12 pb-10">
+  <div class="w-16 h-16 rounded-2xl bg-brand text-white text-xl font-extrabold flex items-center justify-center">OE</div>
+  <h1 class="mt-5 text-2xl font-extrabold text-gray-900">Bienvenue 👨‍🍳</h1>
+  <p class="text-gray-500 mt-1">Créez la page de votre restaurant en quelques secondes.</p>
+  <form method="post" class="mt-6 space-y-3">
+    {% csrf_token %}
+    <input name="name" required placeholder="Nom du restaurant" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <input name="tagline" placeholder="Badge (ex: Cuisine Locale, Premium)" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <textarea name="bio" rows="3" placeholder="Bio / description" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></textarea>
+    <select name="neighborhood" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+      <option value="Akwa">Akwa</option><option value="Bonanjo">Bonanjo</option>
+      <option value="Bonapriso">Bonapriso</option><option value="Bali">Bali</option><option value="Deido">Deido</option>
+    </select>
+    <input name="address" placeholder="Adresse" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <input name="phone" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold">Créer mon restaurant</button>
+  </form>
+</div>
+{% endblock %}

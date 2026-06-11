@@ -1,0 +1,140 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — ONE EAT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{brand:{DEFAULT:'#FF6B1A',50:'#FFF1E8'}}}}}</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>body{font-family:Inter,system-ui,sans-serif;background:#f6f7f9}</style>
+</head>
+<body class="text-gray-800">
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="hidden md:flex flex-col w-60 bg-gray-900 text-gray-300 p-5 sticky top-0 h-screen">
+    <div class="flex items-center gap-2 mb-8">
+      <div class="w-9 h-9 rounded-lg bg-brand text-white font-bold flex items-center justify-center">OE</div>
+      <span class="font-extrabold text-white">ONE EAT Admin</span>
+    </div>
+    <nav class="space-y-1 text-sm">
+      <a href="#stats" class="block px-3 py-2 rounded-lg bg-gray-800 text-white">📊 Vue d'ensemble</a>
+      <a href="#traffic" class="block px-3 py-2 rounded-lg hover:bg-gray-800">📈 Trafic</a>
+      <a href="#top" class="block px-3 py-2 rounded-lg hover:bg-gray-800">🏆 Tops</a>
+      <a href="#users" class="block px-3 py-2 rounded-lg hover:bg-gray-800">👥 Utilisateurs</a>
+      <a href="#restaurants" class="block px-3 py-2 rounded-lg hover:bg-gray-800">🍽️ Restaurants</a>
+      <a href="#logs" class="block px-3 py-2 rounded-lg hover:bg-gray-800">📋 Logs</a>
+      <a href="/django-admin/" class="block px-3 py-2 rounded-lg hover:bg-gray-800">⚙️ Django Admin</a>
+    </nav>
+    <a href="{% url 'accounts:logout' %}" class="mt-auto px-3 py-2 rounded-lg bg-red-500/20 text-red-300 text-sm">Déconnexion</a>
+  </aside>
+
+  <main class="flex-1 p-5 md:p-8 max-w-[1400px]">
+    <header class="flex items-center justify-between mb-6">
+      <div><h1 class="text-2xl font-extrabold text-gray-900">Tableau de bord</h1><p class="text-gray-500 text-sm">Vue globale de la plateforme</p></div>
+      <a href="{% url 'core:home' %}" class="px-4 py-2 rounded-lg bg-white border text-sm font-semibold">← Voir le site</a>
+    </header>
+
+    <!-- Stats -->
+    <section id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {% include "admin_dashboard/_stat.html" with label="Utilisateurs" value=stats.users color="bg-brand" %}
+      {% include "admin_dashboard/_stat.html" with label="Restaurants" value=stats.restaurants color="bg-gray-900" %}
+      {% include "admin_dashboard/_stat.html" with label="Commandes (30j)" value=stats.orders_30 color="bg-blue-600" %}
+      {% include "admin_dashboard/_stat.html" with label="Revenus (FCFA)" value=stats.revenue color="bg-green-600" %}
+      {% include "admin_dashboard/_stat.html" with label="Clients" value=stats.clients color="bg-purple-600" %}
+      {% include "admin_dashboard/_stat.html" with label="Livreurs" value=stats.drivers color="bg-pink-600" %}
+      {% include "admin_dashboard/_stat.html" with label="Total commandes" value=stats.orders color="bg-indigo-600" %}
+      {% include "admin_dashboard/_stat.html" with label="Actives" value=stats.active_orders color="bg-amber-500" %}
+    </section>
+
+    <!-- Trafic -->
+    <section id="traffic" class="mt-6 bg-white rounded-2xl p-5 border">
+      <h2 class="font-bold text-gray-900 mb-3">Trafic (14 derniers jours)</h2>
+      <canvas id="trafficChart" height="80"></canvas>
+    </section>
+
+    <div id="top" class="mt-6 grid md:grid-cols-2 gap-6">
+      <section class="bg-white rounded-2xl p-5 border">
+        <h2 class="font-bold text-gray-900 mb-3">🍽️ Plats les plus commandés</h2>
+        <div class="space-y-2">
+          {% for d in top_dishes %}
+          <div class="flex items-center justify-between text-sm">
+            <span class="truncate">{{ forloop.counter }}. {{ d.name }} <span class="text-gray-400">— {{ d.restaurant.name }}</span></span>
+            <span class="font-bold text-brand">{{ d.orders_count }}</span>
+          </div>
+          {% empty %}<p class="text-gray-400 text-sm">Aucune donnée.</p>{% endfor %}
+        </div>
+      </section>
+      <section class="bg-white rounded-2xl p-5 border">
+        <h2 class="font-bold text-gray-900 mb-3">🏆 Restaurants les mieux notés</h2>
+        <div class="space-y-2">
+          {% for r in top_rated %}
+          <div class="flex items-center justify-between text-sm">
+            <span class="truncate">{{ forloop.counter }}. {{ r.name }}</span>
+            <span class="font-bold text-yellow-500">⭐ {{ r.rating }} <span class="text-gray-400 font-normal">({{ r.rating_count }})</span></span>
+          </div>
+          {% empty %}<p class="text-gray-400 text-sm">Aucune donnée.</p>{% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <!-- Utilisateurs -->
+    <section id="users" class="mt-6 bg-white rounded-2xl p-5 border overflow-x-auto">
+      <h2 class="font-bold text-gray-900 mb-3">👥 Utilisateurs récents</h2>
+      <table class="w-full text-sm">
+        <thead class="text-gray-400 text-left text-xs uppercase"><tr><th class="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Ville</th><th>Inscrit</th></tr></thead>
+        <tbody>
+          {% for u in all_users %}
+          <tr class="border-t"><td class="py-2 font-medium">{{ u.display_name }}</td><td class="text-gray-500">{{ u.email }}</td>
+            <td><span class="px-2 py-0.5 rounded-full bg-gray-100 text-xs">{{ u.get_role_display }}</span></td>
+            <td class="text-gray-500">{{ u.city }}</td><td class="text-gray-400 text-xs">{{ u.created_at|date:"d/m/Y" }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Restaurants -->
+    <section id="restaurants" class="mt-6 bg-white rounded-2xl p-5 border overflow-x-auto">
+      <h2 class="font-bold text-gray-900 mb-3">🍽️ Restaurants</h2>
+      <table class="w-full text-sm">
+        <thead class="text-gray-400 text-left text-xs uppercase"><tr><th class="py-2">Nom</th><th>Quartier</th><th>Note</th><th>Commandes</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for r in all_restaurants %}
+          <tr class="border-t"><td class="py-2 font-medium">{{ r.name }} {% if r.is_pro %}<span class="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">PRO</span>{% endif %}</td>
+            <td class="text-gray-500">{{ r.neighborhood }}</td><td>⭐ {{ r.rating }}</td><td>{{ r.orders_count }}</td>
+            <td>{% if r.is_active %}<span class="text-green-600 text-xs font-bold">Actif</span>{% else %}<span class="text-gray-400 text-xs">Inactif</span>{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Logs -->
+    <section id="logs" class="mt-6 bg-white rounded-2xl p-5 border overflow-x-auto">
+      <h2 class="font-bold text-gray-900 mb-3">📋 Journal d'activité (logs)</h2>
+      <table class="w-full text-xs">
+        <thead class="text-gray-400 text-left uppercase"><tr><th class="py-2">Date</th><th>Niveau</th><th>Action</th><th>User</th><th>Code</th><th>IP</th></tr></thead>
+        <tbody>
+          {% for l in recent_logs %}
+          <tr class="border-t"><td class="py-1.5 text-gray-500">{{ l.created_at|date:"d/m H:i:s" }}</td>
+            <td><span class="px-1.5 py-0.5 rounded {% if l.level == 'error' %}bg-red-100 text-red-600{% elif l.level == 'warning' %}bg-amber-100 text-amber-600{% else %}bg-gray-100 text-gray-500{% endif %}">{{ l.level }}</span></td>
+            <td class="font-mono">{{ l.action }}</td><td class="text-gray-500">{{ l.user.username|default:"—" }}</td>
+            <td>{{ l.status_code }}</td><td class="text-gray-400">{{ l.ip }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<script>
+  const traffic = {{ traffic_json|safe }};
+  new Chart(document.getElementById('trafficChart'), {
+    type:'line',
+    data:{ labels: traffic.map(t=>t.day), datasets:[{ label:'Requêtes', data: traffic.map(t=>t.count),
+      borderColor:'#FF6B1A', backgroundColor:'rgba(255,107,26,.1)', fill:true, tension:.35 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{% extends "restaurant_dashboard/base.html" %}
+{% block title %}Commandes — {{ resto.name }}{% endblock %}
+{% block dash %}
+<h2 class="font-extrabold text-lg text-gray-900">Commandes</h2>
+<div class="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
+  <a href="?" class="flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold {% if not status %}bg-brand text-white{% else %}bg-gray-100 text-gray-600{% endif %}">Toutes</a>
+  {% for value, label in statuses %}
+  <a href="?status={{ value }}" class="flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold {% if status == value %}bg-brand text-white{% else %}bg-gray-100 text-gray-600{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="mt-4 space-y-3">
+  {% for o in orders %}
+  <div class="rounded-2xl border border-gray-100 p-4">
+    <div class="flex items-start justify-between">
+      <div>
+        <p class="font-bold text-gray-900">{{ o.number }}</p>
+        <p class="text-xs text-gray-500 mt-0.5">{{ o.customer.display_name }} • {{ o.created_at|date:"d M H:i" }}</p>
+      </div>
+      {% include "client/_status_badge.html" with status=o.status label=o.status_label %}
+    </div>
+    <div class="mt-2 text-sm text-gray-600">
+      {% for it in o.items.all %}<span>{{ it.quantity }}× {{ it.name }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}
+    </div>
+    <p class="mt-1 font-extrabold text-brand">{{ o.total }} FCFA</p>
+
+    <form method="post" action="{% url 'restaurants:order_status' o.id %}" class="mt-3 flex gap-2">
+      {% csrf_token %}
+      <select name="status" class="flex-1 px-3 py-2 rounded-lg bg-gray-100 text-sm focus:outline-none">
+        {% for value, label in statuses %}<option value="{{ value }}" {% if o.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="driver" class="flex-1 px-3 py-2 rounded-lg bg-gray-100 text-sm focus:outline-none">
+        <option value="">— Livreur —</option>
+        {% for d in resto.drivers.all %}<option value="{{ d.user.id }}" {% if o.driver_id == d.user.id %}selected{% endif %}>{{ d.user.display_name }}</option>{% endfor %}
+      </select>
+      <button class="px-4 rounded-lg bg-gray-900 text-white text-sm font-bold">OK</button>
+    </form>
+  </div>
+  {% empty %}<p class="text-gray-400 text-center py-10">Aucune commande.</p>{% endfor %}
+</div>
+{% endblock %}
