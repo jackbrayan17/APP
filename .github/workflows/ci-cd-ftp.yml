@@ -34,13 +34,14 @@ jobs:
     name: Deploy to FTP
     needs: test
     if: github.ref == 'refs/heads/main'
+    environment: ONE EAT
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Deploy via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
@@ -57,6 +58,7 @@ jobs:
       - test
       - deploy
     if: always()
+    environment: ONE EAT
     runs-on: ubuntu-latest
     steps:
       - name: Validate SMTP secrets
