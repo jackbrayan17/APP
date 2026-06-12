@@ -23,20 +23,24 @@
   <meta property="og:url" content="{{ request.build_absolute_uri }}">
   <meta property="og:title" content="{% block og_title %}ONE EAT — Livraison de repas à Douala{% endblock %}">
   <meta property="og:description" content="{% block og_description %}Commandez et faites-vous livrer vos plats préférés à Douala.{% endblock %}">
-  <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/og-image.png' %}{% endblock %}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   {# Twitter Card #}
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{% block tw_title %}ONE EAT — Livraison de repas à Douala{% endblock %}">
   <meta name="twitter:description" content="{% block tw_description %}Commandez et faites-vous livrer vos plats préférés à Douala.{% endblock %}">
-  <meta name="twitter:image" content="{% block tw_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}{% endblock %}">
+  <meta name="twitter:image" content="{% block tw_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/og-image.png' %}{% endblock %}">
 
   {# Lien profond vers l'app native (Smart App Banner iOS + intent Android) #}
   <meta name="apple-itunes-app" content="app-id=PLACEHOLDER_APPSTORE_ID">
 
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
-  <link rel="icon" href="{% static 'icons/icon-192.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.png' %}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32.png' %}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16.png' %}">
+  <link rel="icon" href="{% static 'icons/favicon.ico' %}" sizes="any">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -65,6 +69,30 @@
 </head>
 <body class="h-full">
   <div class="app-shell {% block shell_class %}{% endblock %}">
+
+    {# ---- Bannière d'installation PWA (iOS / Android auto-détecté) ---- #}
+    <div id="pwa-banner" class="hidden sticky top-0 z-40" style="padding-top:env(safe-area-inset-top)">
+      <div class="flex items-center gap-3 px-4 py-2.5 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
+        <img src="{% static 'icons/icon-192.png' %}" alt="ONE EAT" class="w-9 h-9 rounded-xl shadow">
+        <div class="flex-1 min-w-0">
+          <p class="text-[13px] font-extrabold text-gray-900 leading-tight">Installer ONE EAT</p>
+          <p id="pwa-banner-sub" class="text-[11px] text-gray-500 truncate">Accès rapide depuis votre écran d'accueil</p>
+        </div>
+        <button id="pwa-install-btn" type="button"
+                class="shrink-0 px-3.5 py-1.5 rounded-lg bg-brand text-white text-xs font-bold active:scale-95 transition">Ajouter</button>
+        <button id="pwa-close-btn" type="button" aria-label="Fermer" class="shrink-0 p-1.5 text-gray-400 hover:text-gray-600">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      {# Instructions iOS (pas de prompt natif sur Safari) #}
+      <div id="pwa-ios-help" class="hidden px-4 py-2.5 bg-brand-50 text-[12px] text-gray-700 border-b border-gray-100">
+        Appuyez sur <b>Partager</b>
+        <svg class="inline -mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+        puis <b>« Sur l'écran d'accueil »</b>
+        <svg class="inline -mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+    </div>
+
     {% if messages %}
     <div class="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[440px] space-y-2"
          x-data="{show:true}" x-show="show" x-init="setTimeout(()=>show=false,3500)" x-cloak>
@@ -82,5 +110,100 @@
 
   {% block scripts %}{% endblock %}
   <script src="{% static 'js/app.js' %}"></script>
+
+  <script>
+  /* ---- Bannière d'installation PWA (iOS / Android) ---- */
+  (function () {
+    var banner = document.getElementById('pwa-banner');
+    if (!banner) return;
+    var installBtn = document.getElementById('pwa-install-btn');
+    var closeBtn = document.getElementById('pwa-close-btn');
+    var sub = document.getElementById('pwa-banner-sub');
+    var iosHelp = document.getElementById('pwa-ios-help');
+    var deferred = null;
+
+    var ua = navigator.userAgent || navigator.vendor || '';
+    var isIos = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
+    var isStandalone = (window.matchMedia &&
+        window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+
+    var KEY = 'oneeat_pwa_dismissed';
+    function dismissedRecently() {
+      try {
+        var t = +localStorage.getItem(KEY);
+        return t && (Date.now() - t) < 7 * 24 * 3600 * 1000; // 7 jours
+      } catch (e) { return false; }
+    }
+    function remember() { try { localStorage.setItem(KEY, Date.now()); } catch (e) {} }
+    function show() { banner.classList.remove('hidden'); }
+    function hide() { banner.classList.add('hidden'); }
+
+    // Déjà installée (ouverte comme app) ou fermée récemment -> on n'affiche rien.
+    if (isStandalone || dismissedRecently()) return;
+
+    closeBtn.addEventListener('click', function () { hide(); remember(); });
+
+    if (isIos) {
+      // iOS Safari : pas de prompt natif -> on guide l'utilisateur.
+      installBtn.textContent = 'Comment ?';
+      sub.textContent = "Ajoutez ONE EAT à votre écran d'accueil";
+      installBtn.addEventListener('click', function () {
+        iosHelp.classList.toggle('hidden');
+      });
+      show();
+    } else {
+      // Android / Chrome / Edge : prompt d'installation natif.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferred = e;
+        show();
+      });
+      installBtn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.then(function (choice) {
+          if (choice.outcome === 'accepted') { hide(); remember(); }
+          deferred = null;
+        });
+      });
+      window.addEventListener('appinstalled', function () { hide(); remember(); });
+    }
+  })();
+
+  /* ---- Œil afficher / masquer pour tous les champs mot de passe ---- */
+  (function () {
+    var EYE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var EYE_OFF = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c6.5 0 10 7 10 7a18 18 0 0 1-2.4 3.4M6.6 6.6A18 18 0 0 0 2 11s3.5 7 10 7a10.8 10.8 0 0 0 4.4-.9"/><path d="M3 3l18 18"/></svg>';
+
+    function enhance(inp) {
+      if (inp.dataset.eye) return;
+      inp.dataset.eye = '1';
+      var wrap = document.createElement('div');
+      wrap.style.position = 'relative';
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(inp);
+      inp.style.paddingRight = '44px';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Afficher le mot de passe');
+      btn.innerHTML = EYE;
+      btn.style.cssText = 'position:absolute;right:10px;bottom:11px;background:none;border:0;' +
+        'cursor:pointer;color:#9ca3af;padding:4px;display:flex;line-height:0';
+      wrap.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var reveal = inp.type === 'password';
+        inp.type = reveal ? 'text' : 'password';
+        btn.innerHTML = reveal ? EYE_OFF : EYE;
+        btn.setAttribute('aria-label',
+          reveal ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+      });
+    }
+
+    document.querySelectorAll('input[type="password"]').forEach(enhance);
+  })();
+  </script>
 </body>
 </html>

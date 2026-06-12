@@ -1,10 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Connexion — ONE EAT{% endblock %}
 {% block body %}
 <div class="min-h-[100dvh] flex flex-col px-6 pt-16 pb-10">
   <div class="text-center">
-    <div class="w-20 h-20 rounded-2xl bg-brand text-white text-2xl font-extrabold flex items-center justify-center mx-auto shadow-lg shadow-brand/30">OE</div>
-    <h1 class="mt-5 text-2xl font-extrabold text-gray-900">Bon retour 👋</h1>
+    <img src="{% static 'icons/logo.png' %}" alt="ONE EAT" class="h-14 mx-auto">
+    <h1 class="mt-6 text-2xl font-extrabold text-gray-900">Bon retour 👋</h1>
     <p class="mt-1 text-gray-500">Connectez-vous pour commander</p>
   </div>
 

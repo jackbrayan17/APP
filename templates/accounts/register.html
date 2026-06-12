@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Inscription — ONE EAT{% endblock %}
 {% block body %}
 <div class="min-h-[100dvh] flex flex-col px-6 pt-12 pb-10">
   <div class="text-center">
-    <div class="w-16 h-16 rounded-2xl bg-brand text-white text-xl font-extrabold flex items-center justify-center mx-auto shadow-lg shadow-brand/30">OE</div>
+    <img src="{% static 'icons/logo.png' %}" alt="ONE EAT" class="h-12 mx-auto">
     <h1 class="mt-4 text-2xl font-extrabold text-gray-900">Créer un compte</h1>
     <p class="mt-1 text-gray-500">Rejoignez ONE EAT à Douala</p>
   </div>
