@@ -1,0 +1,44 @@
+{% extends "client/base.html" %}
+{% block title %}Centre d'aide — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5 pb-4">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'accounts:profile' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+      <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+    </a>
+    <h1 class="text-xl font-extrabold text-gray-900">Centre d'aide</h1>
+  </div>
+
+  <!-- Contacts support -->
+  <div class="mt-5 grid grid-cols-2 gap-3">
+    <a href="https://wa.me/{{ support_whatsapp }}?text=Bonjour%20ONE%20EAT" target="_blank" rel="noopener"
+       class="p-4 rounded-2xl bg-green-50 text-center active:scale-95 transition">
+      <p class="text-2xl">💬</p>
+      <p class="text-sm font-bold text-green-700 mt-1">WhatsApp</p>
+      <p class="text-[11px] text-gray-500">Réponse rapide</p>
+    </a>
+    <a href="mailto:{{ support_email }}" class="p-4 rounded-2xl bg-brand-50 text-center active:scale-95 transition">
+      <p class="text-2xl">✉️</p>
+      <p class="text-sm font-bold text-brand mt-1">Email</p>
+      <p class="text-[11px] text-gray-500 truncate">{{ support_email }}</p>
+    </a>
+  </div>
+
+  <!-- FAQ -->
+  <p class="mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wide">Questions fréquentes</p>
+  <div class="space-y-2" x-data="{ open:null }">
+    {% for q, a in faqs %}
+    <div class="rounded-2xl bg-white border border-gray-100 overflow-hidden">
+      <button type="button" @click="open === {{ forloop.counter }} ? open=null : open={{ forloop.counter }}"
+              class="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+        <span class="flex-1 font-semibold text-gray-800 text-sm">{{ q }}</span>
+        <svg class="w-5 h-5 text-gray-400 transition-transform" :class="open === {{ forloop.counter }} && 'rotate-180'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+      </button>
+      <div x-show="open === {{ forloop.counter }}" x-cloak x-collapse class="px-4 pb-4 text-sm text-gray-500 leading-relaxed">{{ a }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <p class="mt-6 text-center text-xs text-gray-400">Besoin d'aide supplémentaire ? Écrivez-nous, nous répondons sous 24 h.</p>
+</div>
+{% endblock %}

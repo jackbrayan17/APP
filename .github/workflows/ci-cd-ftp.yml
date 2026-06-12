@@ -2,16 +2,9 @@ name: CI / CD FTP deploy
 
 on:
   push:
-          BODY="Bonjour Jack,\n\nLe workflow GitHub Actions pour le projet ONE EAT s'est terminé.\n\nStatut général : $STATUS\nRéférence Git : ${{ github.ref }}\nÉvénement : ${{ github.event_name }}\nRésultat des tests : ${{ needs.test.result }}\nRésultat du déploiement : ${{ needs.deploy.result }}\n\n$DETAILS\n\nCommit : ${{ github.sha }}\nURL du workflow : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nCordialement,\nONE EAT CI/CD\n"
-
-          # HTML version (rich)
-          BODY_HTML="<html><body style='font-family:Arial,sans-serif;color:#333;margin:0;padding:0'>\n  <div style='max-width:600px;margin:20px auto;padding:20px;border-radius:6px;border:1px solid #eee;background:#fff'>\n    <h2 style='color:#FF6B1A;margin-bottom:6px'>ONE EAT — CI/CD</h2>\n    <p style='font-size:15px'>Statut général : <strong style='color:#111'>$STATUS</strong></p>\n    <p style='background:#f9f9f9;padding:12px;border-radius:4px;color:#222'>$DETAILS</p>\n    <ul style='color:#444;font-size:13px;line-height:1.4'>\n      <li>Référence Git : ${{ github.ref }}</li>\n      <li>Événement : ${{ github.event_name }}</li>\n      <li>Tests : <strong>${{ needs.test.result }}</strong></li>\n      <li>Déploiement : <strong>${{ needs.deploy.result }}</strong></li>\n      <li>Commit : <code style='background:#f1f1f1;padding:2px 4px;border-radius:3px'>${{ github.sha }}</code></li>\n    </ul>\n    <p style='text-align:center;margin-top:18px'>\n      <a href='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' style='display:inline-block;padding:10px 16px;background:#FF6B1A;color:#fff;text-decoration:none;border-radius:4px'>Voir le workflow</a>\n    </p>\n    <hr style='border:none;border-top:1px solid #eee;margin:18px 0'/>\n    <p style='font-size:12px;color:#777'>Cordialement,<br/>ONE EAT CI/CD</p>\n  </div>\n</body></html>"
-
+    branches:
       - main
   workflow_dispatch:
-          echo "body_html<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$BODY_HTML" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
 
 env:
   EMAIL_RECIPIENT: jackbrayan1707@gmail.com
@@ -76,7 +69,6 @@ jobs:
           script: |
             cd "${{ env.REMOTE_APP_DIR }}"
 
-            # Activate virtualenv if provided, otherwise try common locations
             if [ -n "${{ secrets.REMOTE_VENV_ACTIVATE }}" ]; then
               source "${{ secrets.REMOTE_VENV_ACTIVATE }}"
             elif [ -f ./venv/bin/activate ]; then
@@ -163,8 +155,13 @@ jobs:
           SUBJECT="[ONE EAT] CI/CD - $STATUS pour ${{ github.repository }}"
           BODY="Bonjour Jack,\n\nLe workflow GitHub Actions pour le projet ONE EAT s'est terminé.\n\nStatut général : $STATUS\nRéférence Git : ${{ github.ref }}\nÉvénement : ${{ github.event_name }}\nRésultat des tests : ${{ needs.test.result }}\nRésultat du déploiement : ${{ needs.deploy.result }}\nRésultat du rollback : ${{ needs.rollback.result }}\n\n$DETAILS\n\nCommit : ${{ github.sha }}\nURL du workflow : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nCordialement,\nONE EAT CI/CD\n"
 
+          BODY_HTML="<html><body style='font-family:Arial,sans-serif;color:#333;margin:0;padding:0'>\n  <div style='max-width:600px;margin:20px auto;padding:20px;border-radius:6px;border:1px solid #eee;background:#fff'>\n    <h2 style='color:#FF6B1A;margin-bottom:6px'>ONE EAT — CI/CD</h2>\n    <p style='font-size:15px'>Statut général : <strong style='color:#111'>$STATUS</strong></p>\n    <p style='background:#f9f9f9;padding:12px;border-radius:4px;color:#222'>$DETAILS</p>\n    <ul style='color:#444;font-size:13px;line-height:1.4'>\n      <li>Référence Git : ${{ github.ref }}</li>\n      <li>Événement : ${{ github.event_name }}</li>\n      <li>Tests : <strong>${{ needs.test.result }}</strong></li>\n      <li>Déploiement : <strong>${{ needs.deploy.result }}</strong></li>\n      <li>Commit : <code style='background:#f1f1f1;padding:2px 4px;border-radius:3px'>${{ github.sha }}</code></li>\n    </ul>\n    <p style='text-align:center;margin-top:18px'>\n      <a href='${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}' style='display:inline-block;padding:10px 16px;background:#FF6B1A;color:#fff;text-decoration:none;border-radius:4px'>Voir le workflow</a>\n    </p>\n    <hr style='border:none;border-top:1px solid #eee;margin:18px 0'/>\n    <p style='font-size:12px;color:#777'>Cordialement,<br/>ONE EAT CI/CD</p>\n  </div>\n</body></html>"
+
           echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
           echo "body=$BODY" >> "$GITHUB_OUTPUT"
+          echo "body_html<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY_HTML" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Send notification email
         uses: dawidd6/action-send-mail@v3
@@ -175,6 +172,8 @@ jobs:
           password: ${{ secrets.SMTP_PASSWORD }}
           subject: ${{ steps.build_message.outputs.subject }}
           body: ${{ steps.build_message.outputs.body }}
+          body_html: ${{ steps.build_message.outputs.body_html }}
+          content_type: text/html
           to: ${{ env.EMAIL_RECIPIENT }}
           from: ${{ env.MAIL_FROM }}
           secure: ${{ steps.mail_secure.outputs.secure }}

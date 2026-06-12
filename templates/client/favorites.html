@@ -1,0 +1,27 @@
+{% extends "client/base.html" %}
+{% block title %}Mes favoris — ONE EAT{% endblock %}
+{% block content %}
+<div class="px-4 pt-5 pb-4">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'accounts:profile' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+      <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+    </a>
+    <h1 class="text-xl font-extrabold text-gray-900">Mes favoris</h1>
+  </div>
+
+  {% if restaurants %}
+  <div class="mt-5 space-y-3">
+    {% for r in restaurants %}
+      {% include "client/_restaurant_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="mt-20 text-center">
+    <p class="text-5xl">♥</p>
+    <p class="mt-4 font-extrabold text-gray-900 text-lg">Aucun favori pour l'instant</p>
+    <p class="mt-1 text-gray-500 text-sm px-8">Appuyez sur le cœur d'un restaurant pour le retrouver ici.</p>
+    <a href="{% url 'core:home' %}" class="mt-6 inline-block px-6 py-3 rounded-xl bg-brand text-white font-bold">Découvrir les restaurants</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

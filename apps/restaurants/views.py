@@ -10,11 +10,36 @@ from apps.accounts.models import User
 from apps.delivery.models import DriverProfile
 from apps.orders.models import Order
 from apps.promotions.models import Promotion
-from .models import Restaurant, Category, MenuSection, Dish, RestaurantPhoto
+from .models import Restaurant, Category, MenuSection, Dish, RestaurantPhoto, Favorite
 
 
 def _cart_count(request):
     return sum(i.get("qty", 0) for i in request.session.get("cart", {}).values())
+
+
+# ---------------- Favoris ----------------
+@login_required
+@require_POST
+def favorite_toggle(request, slug):
+    resto = get_object_or_404(Restaurant, slug=slug)
+    fav = Favorite.objects.filter(user=request.user, restaurant=resto).first()
+    if fav:
+        fav.delete()
+        is_fav = False
+    else:
+        Favorite.objects.create(user=request.user, restaurant=resto)
+        is_fav = True
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"is_favorite": is_fav})
+    return redirect("restaurants:detail", slug=slug)
+
+
+@login_required
+def favorites_list(request):
+    restos = [f.restaurant for f in Favorite.objects.filter(user=request.user)
+              .select_related("restaurant")]
+    return render(request, "client/favorites.html",
+                  {"restaurants": restos, "cart_count": _cart_count(request)})
 
 
 # ---------------- Cote client ----------------
@@ -23,11 +48,14 @@ def restaurant_detail(request, slug):
                               slug=slug, is_active=True)
     sections = resto.sections.prefetch_related("dishes").all()
     unsectioned = resto.dishes.filter(section__isnull=True, is_available=True)
+    is_favorite = (request.user.is_authenticated and
+                   Favorite.objects.filter(user=request.user, restaurant=resto).exists())
     context = {
         "resto": resto,
         "sections": sections,
         "unsectioned": unsectioned,
         "reviews": resto.reviews.select_related("customer")[:10],
+        "is_favorite": is_favorite,
         "cart_count": _cart_count(request),
     }
     return render(request, "client/restaurant_detail.html", context)

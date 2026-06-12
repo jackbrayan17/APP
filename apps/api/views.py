@@ -359,6 +359,32 @@ def api_register_device(request):
     return Response({"ok": True}, status=status.HTTP_201_CREATED)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_favorites(request):
+    """Liste des restaurants favoris de l'utilisateur."""
+    from apps.restaurants.models import Favorite
+    restos = [f.restaurant for f in Favorite.objects.filter(user=request.user)
+              .select_related("restaurant")]
+    return Response(RestaurantSerializer(restos, many=True,
+                                         context={"request": request}).data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_favorite_toggle(request):
+    """Ajoute / retire un restaurant des favoris. Body: {slug}."""
+    from apps.restaurants.models import Favorite
+    slug = request.data.get("slug")
+    resto = get_object_or_404(Restaurant, slug=slug)
+    fav = Favorite.objects.filter(user=request.user, restaurant=resto).first()
+    if fav:
+        fav.delete()
+        return Response({"is_favorite": False})
+    Favorite.objects.create(user=request.user, restaurant=resto)
+    return Response({"is_favorite": True}, status=status.HTTP_201_CREATED)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def api_unregister_device(request):

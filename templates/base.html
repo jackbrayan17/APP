@@ -41,6 +41,17 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{% static 'icons/favicon-32.png' %}">
   <link rel="icon" type="image/png" sizes="16x16" href="{% static 'icons/favicon-16.png' %}">
   <link rel="icon" href="{% static 'icons/favicon.ico' %}" sizes="any">
+
+  {# Capture précoce de l'invite d'installation (avant tout autre script) #}
+  <script>
+    window.__oneeatDeferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__oneeatDeferredPrompt = e;
+      window.dispatchEvent(new Event('oneeat-installable'));
+    });
+  </script>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -153,20 +164,49 @@
       });
       show();
     } else {
-      // Android / Chrome / Edge : prompt d'installation natif.
-      window.addEventListener('beforeinstallprompt', function (e) {
-        e.preventDefault();
-        deferred = e;
+      // Android / Chrome / Edge : invite d'installation native (WebAPK).
+      var fallbackShown = false;
+
+      function showInstallReady() {
+        deferred = window.__oneeatDeferredPrompt;
+        installBtn.textContent = 'Ajouter';
+        sub.textContent = "Accès rapide depuis votre écran d'accueil";
         show();
-      });
+      }
+
+      function showMenuHint() {
+        // Repli : Chrome n'a pas (encore) émis l'invite -> on explique le menu.
+        if (fallbackShown) return;
+        fallbackShown = true;
+        installBtn.textContent = 'Comment ?';
+        sub.textContent = "Installez ONE EAT sur votre téléphone";
+        iosHelp.innerHTML =
+          'Ouvrez le menu <b>⋮</b> de Chrome (en haut à droite) puis ' +
+          "<b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.";
+        installBtn.onclick = function () { iosHelp.classList.toggle('hidden'); };
+        show();
+      }
+
+      // L'invite a déjà été capturée tôt (script du <head>) ?
+      if (window.__oneeatDeferredPrompt) showInstallReady();
+      window.addEventListener('oneeat-installable', showInstallReady);
+
       installBtn.addEventListener('click', function () {
-        if (!deferred) return;
+        if (!deferred) { showMenuHint(); return; }
         deferred.prompt();
         deferred.userChoice.then(function (choice) {
           if (choice.outcome === 'accepted') { hide(); remember(); }
           deferred = null;
         });
       });
+
+      // Si rien n'est installable après 3,5 s, on affiche le repli avec instructions.
+      setTimeout(function () {
+        if (!deferred && !isStandalone && banner.classList.contains('hidden')) {
+          showMenuHint();
+        }
+      }, 3500);
+
       window.addEventListener('appinstalled', function () { hide(); remember(); });
     }
   })();

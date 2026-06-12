@@ -16,6 +16,9 @@ urlpatterns = [
     path("resto/commandes/<int:order_id>/statut/", views.order_set_status, name="order_status"),
     path("resto/livreurs/", views.drivers_manage, name="drivers"),
     path("resto/promos/", views.promos_manage, name="promos"),
+    # Favoris
+    path("favoris/", views.favorites_list, name="favorites"),
+    path("favoris/<slug:slug>/", views.favorite_toggle, name="favorite_toggle"),
     # Public
     path("restaurant/<slug:slug>/", views.restaurant_detail, name="detail"),
     path("r/<str:token>/", views.restaurant_share, name="share"),

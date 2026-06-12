@@ -26,6 +26,10 @@ urlpatterns = [
     path("orders/<str:number>/review/", views.api_review_order, name="review_order"),
     path("promo/validate/", views.api_validate_promo, name="validate_promo"),
 
+    # Favoris
+    path("favorites/", views.api_favorites, name="favorites"),
+    path("favorites/toggle/", views.api_favorite_toggle, name="favorite_toggle"),
+
     # Livreur
     path("delivery/nearby/", views.nearby_orders, name="nearby_orders"),
     path("delivery/position/", views.api_driver_position, name="driver_position"),

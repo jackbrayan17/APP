@@ -1,43 +1,120 @@
 {% extends "client/base.html" %}
+{% load static %}
 {% block title %}Mon profil — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-5">
+<div class="px-4 pt-5 pb-4" x-data="{ edit:false }">
+
+  <!-- En-tête -->
   <div class="flex items-center gap-4">
-    <div class="w-16 h-16 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center">{{ user.initials }}</div>
-    <div>
-      <h1 class="text-xl font-extrabold text-gray-900">{{ user.display_name }}</h1>
-      <p class="text-gray-500 text-sm">{{ user.email }}</p>
+    {% if user.avatar %}
+      <img src="{{ user.avatar.url }}" class="w-16 h-16 rounded-full object-cover">
+    {% else %}
+      <div class="w-16 h-16 rounded-full bg-brand text-white text-xl font-bold flex items-center justify-center">{{ user.initials }}</div>
+    {% endif %}
+    <div class="min-w-0">
+      <h1 class="text-xl font-extrabold text-gray-900 truncate">{{ user.display_name }}</h1>
+      <p class="text-gray-500 text-sm truncate">{{ user.email }}</p>
       <span class="inline-block mt-1 text-xs font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-full">{{ user.get_role_display }}</span>
     </div>
   </div>
 
-  <div class="mt-6 grid grid-cols-2 gap-2">
-    <a href="{% url 'orders:list' %}" class="p-4 rounded-2xl bg-gray-50 text-center"><p class="text-2xl font-extrabold text-brand">{{ user.orders.count }}</p><p class="text-xs text-gray-500">Commandes</p></a>
-    <button onclick="OE.enablePush('{{ VAPID_PUBLIC_KEY }}')" class="p-4 rounded-2xl bg-gray-50 text-center">
-      <p class="text-2xl">🔔</p><p class="text-xs text-gray-500">Activer notifications</p></button>
+  <!-- Stats rapides -->
+  <div class="mt-5 grid grid-cols-2 gap-2">
+    <a href="{% url 'orders:list' %}" class="p-4 rounded-2xl bg-gray-50 text-center active:scale-95 transition">
+      <p class="text-2xl font-extrabold text-brand">{{ user.orders.count }}</p>
+      <p class="text-xs text-gray-500">Commandes</p>
+    </a>
+    <a href="{% url 'restaurants:favorites' %}" class="p-4 rounded-2xl bg-gray-50 text-center active:scale-95 transition">
+      <p class="text-2xl font-extrabold text-brand">{{ user.favorites.count }}</p>
+      <p class="text-xs text-gray-500">Favoris</p>
+    </a>
   </div>
 
-  <form method="post" class="mt-6 space-y-3" x-data="{
-    locate(){ OE.getLocation().then(p=>{ this.$refs.lat.value=p.lat; this.$refs.lng.value=p.lng; this.$refs.addr.placeholder='Position GPS enregistrée ✅'; }); }
-  }">
-    {% csrf_token %}
-    <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
-    <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
-    <div class="grid grid-cols-2 gap-3">
-      <input name="first_name" value="{{ user.first_name }}" placeholder="Prénom" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-      <input name="last_name" value="{{ user.last_name }}" placeholder="Nom" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    </div>
-    <input name="phone" value="{{ user.phone }}" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    <button type="button" @click="locate" class="w-full py-3 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Utiliser ma position actuelle</button>
-    <button type="submit" class="w-full py-3.5 rounded-xl bg-brand text-white font-bold">Enregistrer</button>
-  </form>
+  <!-- Panneau d'édition (repliable) -->
+  <div x-show="edit" x-cloak x-transition class="mt-4">
+    <form method="post" class="space-y-3 bg-gray-50 rounded-2xl p-4" x-data="{
+      locate(){ OE.getLocation().then(p=>{ this.$refs.lat.value=p.lat; this.$refs.lng.value=p.lng; this.$refs.addr.placeholder='Position GPS enregistrée ✅'; }); }
+    }">
+      {% csrf_token %}
+      <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
+      <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
+      <div class="grid grid-cols-2 gap-3">
+        <input name="first_name" value="{{ user.first_name }}" placeholder="Prénom" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
+        <input name="last_name" value="{{ user.last_name }}" placeholder="Nom" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      </div>
+      <input name="phone" value="{{ user.phone }}" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <button type="button" @click="locate" class="w-full py-3 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Utiliser ma position actuelle</button>
+      <button type="submit" class="w-full py-3.5 rounded-xl bg-brand text-white font-bold">Enregistrer</button>
+    </form>
+  </div>
 
-  {% if user.is_restaurant %}<a href="{% url 'restaurants:dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Restaurant</a>{% endif %}
-  {% if user.is_driver %}<a href="{% url 'delivery:dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Livreur</a>{% endif %}
-  {% if user.is_influencer %}<a href="{% url 'promotions:influencer_dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Espace Influenceur</a>{% endif %}
-  {% if user.is_staff %}<a href="{% url 'core:admin_dashboard' %}" class="mt-3 block text-center py-3 rounded-xl bg-gray-900 text-white font-bold">Tableau de bord Admin</a>{% endif %}
+  <!-- Mon compte -->
+  <p class="mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wide">Mon compte</p>
+  <div class="rounded-2xl bg-white border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+    <button type="button" @click="edit=!edit" class="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zM19.5 6.75L17.25 4.5" %}
+      <span class="flex-1 font-semibold text-gray-800">Modifier mes informations</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </button>
+    <a href="{% url 'orders:list' %}" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" %}
+      <span class="flex-1 font-semibold text-gray-800">Mes commandes</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+    <a href="{% url 'restaurants:favorites' %}" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" %}
+      <span class="flex-1 font-semibold text-gray-800">Mes favoris</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+    <button type="button" onclick="OE.enablePush('{{ VAPID_PUBLIC_KEY }}')" class="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" %}
+      <span class="flex-1 font-semibold text-gray-800">Activer les notifications</span>
+    </button>
+  </div>
 
-  <a href="{% url 'accounts:logout' %}" class="mt-3 block text-center py-3 rounded-xl bg-red-50 text-red-600 font-bold">Se déconnecter</a>
+  <!-- Mon espace (selon le rôle) -->
+  {% if user.is_restaurant or user.is_driver or user.is_influencer or user.is_staff %}
+  <p class="mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wide">Mon espace</p>
+  <div class="rounded-2xl bg-gray-900 overflow-hidden">
+    {% if user.is_restaurant %}<a href="{% url 'restaurants:dashboard' %}" class="block px-4 py-3.5 text-white font-bold">🍽️ Espace Restaurant</a>{% endif %}
+    {% if user.is_driver %}<a href="{% url 'delivery:dashboard' %}" class="block px-4 py-3.5 text-white font-bold">🛵 Espace Livreur</a>{% endif %}
+    {% if user.is_influencer %}<a href="{% url 'promotions:influencer_dashboard' %}" class="block px-4 py-3.5 text-white font-bold">⭐ Espace Influenceur</a>{% endif %}
+    {% if user.is_staff %}<a href="{% url 'core:admin_dashboard' %}" class="block px-4 py-3.5 text-white font-bold">🛠️ Tableau de bord Admin</a>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Aide & assistance -->
+  <p class="mt-6 mb-2 text-xs font-bold text-gray-400 uppercase tracking-wide">Aide & assistance</p>
+  <div class="rounded-2xl bg-white border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+    <a href="{% url 'core:help' %}" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" %}
+      <span class="flex-1 font-semibold text-gray-800">Centre d'aide</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+    <a href="https://wa.me/237600000000?text=Bonjour%20ONE%20EAT,%20j'ai%20besoin%20d'aide" target="_blank" rel="noopener" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" %}
+      <span class="flex-1 font-semibold text-gray-800">Contacter le support</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+    <a href="{% url 'core:legal' 'confidentialite' %}" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" %}
+      <span class="flex-1 font-semibold text-gray-800">Politique de confidentialité</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+    <a href="{% url 'core:legal' 'cgu' %}" class="flex items-center gap-3 px-4 py-3.5 active:bg-gray-50">
+      {% include "client/_menu_icon.html" with d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" %}
+      <span class="flex-1 font-semibold text-gray-800">Conditions d'utilisation</span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+    </a>
+  </div>
+
+  <!-- Déconnexion -->
+  <a href="{% url 'accounts:logout' %}" class="mt-4 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-red-50 text-red-600 font-bold active:scale-95 transition">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+    Se déconnecter
+  </a>
+
+  <p class="mt-4 text-center text-xs text-gray-400">ONE EAT • v1.0.0 — Douala, Cameroun</p>
 </div>
 {% endblock %}

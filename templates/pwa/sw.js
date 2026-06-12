@@ -1,7 +1,12 @@
 /* ONE EAT — Service Worker (PWA, compatible Android & iOS 16.4+) */
-const CACHE = "oneeat-v1";
+/* v2 : nouvelles icônes de marque -> bump de version pour purger l'ancien cache. */
+const CACHE = "oneeat-v2";
 const OFFLINE_URL = "/offline/";
-const PRECACHE = ["/", "/offline/", "/static/js/app.js", "/manifest.webmanifest"];
+const PRECACHE = [
+  "/", "/offline/", "/static/js/app.js", "/manifest.webmanifest",
+  "/static/icons/icon-192.png", "/static/icons/icon-512.png",
+  "/static/icons/logo.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

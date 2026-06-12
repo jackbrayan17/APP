@@ -128,6 +128,21 @@ class RestaurantPhoto(TimeStampedModel):
         ordering = ["order"]
 
 
+class Favorite(TimeStampedModel):
+    """Restaurant ajouté en favori par un utilisateur."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name="favorites")
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE,
+                                   related_name="favorited_by")
+
+    class Meta:
+        unique_together = ("user", "restaurant")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user} ♥ {self.restaurant}"
+
+
 class MenuSection(models.Model):
     """Onglet de menu (ex: Cuisine Camerounaise, Riz & Accompagnements, Snacks)."""
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name="sections")

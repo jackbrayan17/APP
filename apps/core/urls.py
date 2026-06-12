@@ -9,6 +9,7 @@ urlpatterns = [
     path("recherche/", views.search_api, name="search_api"),
     path("notifications/", views.notifications, name="notifications"),
     path("push/subscribe/", views.push_subscribe, name="push_subscribe"),
+    path("aide/", views.help_center, name="help"),
     path("legal/<str:page>/", views.legal_page, name="legal"),
     path("tableau-admin/", views.admin_dashboard, name="admin_dashboard"),
     # PWA

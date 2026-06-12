@@ -113,18 +113,24 @@ def manifest(request):
         "theme_color": "#FF6B1A",
         "lang": "fr",
         "categories": ["food", "shopping", "lifestyle"],
+        "id": "/",
         "icons": [
             {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png",
-             "purpose": "any maskable"},
+             "purpose": "any"},
             {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png",
-             "purpose": "any maskable"},
+             "purpose": "any"},
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png",
+             "purpose": "maskable"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png",
+             "purpose": "maskable"},
         ],
         "shortcuts": [
             {"name": "Mes commandes", "url": "/commandes/"},
             {"name": "Explorer", "url": "/explorer/"},
         ],
     }
-    return JsonResponse(data)
+    # Type MIME correct pour une installabilité maximale (Chrome/Edge/Android).
+    return JsonResponse(data, content_type="application/manifest+json")
 
 
 def service_worker(request):
@@ -137,6 +143,31 @@ def service_worker(request):
 
 def offline(request):
     return render(request, "pwa/offline.html")
+
+
+def help_center(request):
+    """Centre d'aide : FAQ + contacts support."""
+    faqs = [
+        ("Comment passer une commande ?",
+         "Choisissez un restaurant, ajoutez des plats au panier, puis validez "
+         "votre adresse de livraison et le mode de paiement."),
+        ("Quels modes de paiement acceptez-vous ?",
+         "Espèces à la livraison, MTN Mobile Money, Orange Money et carte bancaire."),
+        ("Comment suivre ma commande ?",
+         "Depuis « Mes commandes », ouvrez une commande en cours pour suivre le "
+         "livreur en temps réel sur la carte."),
+        ("Comment ajouter un restaurant en favori ?",
+         "Appuyez sur le cœur ♥ sur la page d'un restaurant. Retrouvez vos favoris "
+         "depuis votre profil."),
+        ("Quelle est la zone de livraison ?",
+         "Nous livrons à Douala, dans un rayon de 10 km autour de chaque restaurant."),
+    ]
+    return render(request, "client/help.html", {
+        "faqs": faqs,
+        "support_email": "support@oneeat.cm",
+        "support_whatsapp": "237600000000",
+        "cart_count": _cart_count(request),
+    })
 
 
 # ---------- Pages legales ----------
