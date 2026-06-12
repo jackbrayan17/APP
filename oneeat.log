@@ -67,3 +67,16 @@ INFO 2026-06-12 00:54:25,475 middleware POST /connexion/ -> 302
 INFO 2026-06-12 00:54:28,756 middleware POST /panier/ajouter/47/ -> 200
 INFO 2026-06-12 00:54:31,642 services VAPID non configure — push ignore pour Burger House Bali
 INFO 2026-06-12 00:54:31,642 middleware POST /commander/ -> 302
+INFO 2026-06-12 10:40:14,940 middleware GET /robots.txt -> 200
+INFO 2026-06-12 10:40:14,963 middleware GET /sitemap.xml -> 200
+INFO 2026-06-12 10:40:14,965 middleware GET /.well-known/assetlinks.json -> 200
+INFO 2026-06-12 10:40:14,967 middleware GET /.well-known/apple-app-site-association -> 200
+INFO 2026-06-12 10:40:37,525 middleware POST /api/auth/register/ -> 201
+INFO 2026-06-12 10:40:37,545 middleware GET /api/me/ -> 200
+INFO 2026-06-12 10:40:37,556 middleware GET /api/restaurants/ -> 200
+INFO 2026-06-12 10:40:37,607 middleware GET /api/restaurants/le-ndole-dor/ -> 200
+INFO 2026-06-12 10:40:37,628 services VAPID non configure — push ignore pour Burger House Bali
+INFO 2026-06-12 10:40:37,630 services FCM non configure — push natif ignore pour Burger House Bali
+INFO 2026-06-12 10:40:37,669 middleware POST /api/checkout/ -> 201
+INFO 2026-06-12 10:40:37,696 middleware GET /api/orders/OE82937822/ -> 200
+INFO 2026-06-12 10:40:37,733 middleware GET /api/share/restaurant/UnpMN8rfqlVsygBq/ -> 200

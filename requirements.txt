@@ -5,3 +5,6 @@ Pillow==11.0.0
 python-dotenv==1.0.1
 pywebpush==2.0.1
 qrcode==8.0
+# Optionnel — notifications push natives FCM pour l'app mobile Flutter
+# (activé si GOOGLE_APPLICATION_CREDENTIALS + FCM_PROJECT_ID sont définis)
+firebase-admin==6.5.0

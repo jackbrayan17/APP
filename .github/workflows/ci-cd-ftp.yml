@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@4.4.0
+        uses: SamKirkland/FTP-Deploy-Action@v4
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
@@ -59,6 +59,13 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Validate SMTP secrets
+        run: |
+          if [[ -z "${{ secrets.SMTP_SERVER }}" || -z "${{ secrets.SMTP_PORT }}" || -z "${{ secrets.SMTP_USERNAME }}" || -z "${{ secrets.SMTP_PASSWORD }}" ]]; then
+            echo "SMTP secrets are missing or empty. Please add SMTP_SERVER, SMTP_PORT, SMTP_USERNAME and SMTP_PASSWORD to GitHub secrets."
+            exit 1
+          fi
+
       - name: Build email content
         id: build_message
         run: |

@@ -200,3 +200,84 @@ def admin_dashboard(request):
         "all_restaurants": Restaurant.objects.order_by("-created_at"),
     }
     return render(request, "admin_dashboard/dashboard.html", context)
+
+
+# ----------------------------------------------------------------------------
+# SEO : robots.txt + sitemap.xml (référencement Google / moteurs IA)
+# ----------------------------------------------------------------------------
+def robots_txt(request):
+    host = request.get_host()
+    scheme = request.scheme
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /django-admin/",
+        "Disallow: /tableau-admin/",
+        "Disallow: /resto/",
+        "Disallow: /livreur/",
+        "Disallow: /panier/",
+        "Disallow: /commande/",
+        "",
+        f"Sitemap: {scheme}://{host}/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def sitemap_xml(request):
+    """Sitemap dynamique : accueil + fiches restaurants (liens de partage)."""
+    base = f"{request.scheme}://{request.get_host()}"
+    urls = [
+        (f"{base}/", "1.0", "daily"),
+        (f"{base}/explorer/", "0.9", "daily"),
+    ]
+    for r in Restaurant.objects.filter(is_active=True):
+        urls.append((f"{base}/r/{r.share_token}/", "0.8", "weekly"))
+        urls.append((f"{base}/restaurant/{r.slug}/", "0.7", "weekly"))
+
+    items = "".join(
+        f"<url><loc>{loc}</loc><changefreq>{freq}</changefreq>"
+        f"<priority>{prio}</priority></url>"
+        for loc, prio, freq in urls
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{items}</urlset>"
+    )
+    return HttpResponse(xml, content_type="application/xml")
+
+
+# ----------------------------------------------------------------------------
+# Vérification des deep links (App Links Android / Universal Links iOS)
+# ----------------------------------------------------------------------------
+def android_assetlinks(request):
+    """/.well-known/assetlinks.json — vérifie l'app Android pour ouvrir les
+    liens https://oneeat.cm/... directement dans l'app.
+    Remplacez l'empreinte SHA-256 par celle de votre clé de signature de prod
+    (keytool -list -v -keystore ...)."""
+    sha256 = settings.ANDROID_CERT_SHA256 if hasattr(settings, "ANDROID_CERT_SHA256") else "REMPLACER_PAR_SHA256_SIGNATURE"
+    data = [{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "com.oneeat.app",
+            "sha256_cert_fingerprints": [sha256],
+        },
+    }]
+    return JsonResponse(data, safe=False)
+
+
+def apple_app_site_association(request):
+    """/.well-known/apple-app-site-association — Universal Links iOS.
+    Remplacez TEAMID par votre Apple Team ID."""
+    team_app_id = settings.IOS_APP_ID if hasattr(settings, "IOS_APP_ID") else "TEAMID.com.oneeat.app"
+    data = {
+        "applinks": {
+            "apps": [],
+            "details": [{
+                "appID": team_app_id,
+                "paths": ["/r/*", "/c/*", "/o/*", "/restaurant/*", "/suivi/*"],
+            }],
+        },
+    }
+    return JsonResponse(data)

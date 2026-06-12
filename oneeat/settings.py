@@ -130,6 +130,17 @@ VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_ADMIN_EMAIL = os.environ.get("VAPID_ADMIN_EMAIL", "admin@oneeat.cm")
 
+# --- Push natif FCM (app mobile Flutter) ---
+# Definir aussi GOOGLE_APPLICATION_CREDENTIALS (chemin du JSON compte de service).
+FCM_PROJECT_ID = os.environ.get("FCM_PROJECT_ID", "")
+
+# --- Deep links app mobile (App Links Android / Universal Links iOS) ---
+# Empreinte SHA-256 de la cle de signature Android de release (keytool -list -v).
+ANDROID_CERT_SHA256 = os.environ.get(
+    "ANDROID_CERT_SHA256", "REMPLACER_PAR_SHA256_SIGNATURE")
+# Apple Team ID + bundle id, ex: "ABCDE12345.com.oneeat.app".
+IOS_APP_ID = os.environ.get("IOS_APP_ID", "TEAMID.com.oneeat.app")
+
 # --- Parametres metier ONE EAT ---
 DELIVERY_RADIUS_KM = 10          # perimetre livreur
 DEFAULT_CITY = "Douala"
