@@ -1,0 +1,96 @@
+name: CI / CD FTP deploy
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  EMAIL_RECIPIENT: jackbrayan1707@gmail.com
+  MAIL_FROM: "ONE EAT CI <noreply@oneeat.cm>"
+  FTP_REMOTE_DIR: "/"
+
+jobs:
+  test:
+    name: Run Django tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Django test suite
+        run: python manage.py test
+
+  deploy:
+    name: Deploy to FTP
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via FTP/FTPS
+        uses: SamKirkland/FTP-Deploy-Action@4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: ${{ secrets.FTP_PORT }}
+          local-dir: ./
+          remote-dir: ${{ env.FTP_REMOTE_DIR }}
+          exclude: .git*,.github,mobile/**
+
+  notify:
+    name: Send status email
+    needs:
+      - test
+      - deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build email content
+        id: build_message
+        run: |
+          if [[ "${{ needs.test.result }}" != "success" ]]; then
+            STATUS="ECHEC"
+            DETAILS="Le job de tests a échoué."
+          elif [[ "${{ needs.deploy.result }}" == "failure" ]]; then
+            STATUS="ECHEC"
+            DETAILS="Les tests ont réussi mais le déploiement FTP a échoué."
+          elif [[ "${{ needs.deploy.result }}" == "skipped" ]]; then
+            STATUS="SUCCES"
+            DETAILS="Les tests ont réussi ; le déploiement n'a pas été exécuté car la branche n'était pas 'main'."
+          else
+            STATUS="SUCCES"
+            DETAILS="Les tests ont réussi et le déploiement FTP a été effectué avec succès."
+          fi
+
+          SUBJECT="[ONE EAT] CI/CD - $STATUS pour ${{ github.repository }}"
+          BODY="Bonjour Jack,\n\nLe workflow GitHub Actions pour le projet ONE EAT s'est terminé.\n\nStatut général : $STATUS\nRéférence Git : ${{ github.ref }}\nÉvénement : ${{ github.event_name }}\nRésultat des tests : ${{ needs.test.result }}\nRésultat du déploiement : ${{ needs.deploy.result }}\n\n$DETAILS\n\nCommit : ${{ github.sha }}\nURL du workflow : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\nCordialement,\nONE EAT CI/CD\n"
+
+          echo "subject=$SUBJECT" >> "$GITHUB_OUTPUT"
+          echo "body=$BODY" >> "$GITHUB_OUTPUT"
+
+      - name: Send notification email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: ${{ steps.build_message.outputs.subject }}
+          body: ${{ steps.build_message.outputs.body }}
+          to: ${{ env.EMAIL_RECIPIENT }}
+          from: ${{ env.MAIL_FROM }}
+          secure: true

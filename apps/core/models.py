@@ -70,3 +70,28 @@ class PushSubscription(TimeStampedModel):
 
     def __str__(self):
         return f"Push<{self.user}>"
+
+
+class DevicePushToken(TimeStampedModel):
+    """Jeton de notification natif (Firebase Cloud Messaging) pour l'app mobile
+    Flutter (Android / iOS via APNs). Distinct du Web Push (PWA)."""
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="device_tokens")
+    token = models.CharField(max_length=300, unique=True, db_index=True)
+    platform = models.CharField(max_length=8, choices=Platform.choices, default=Platform.ANDROID)
+    device_id = models.CharField(max_length=120, blank=True)
+    app_version = models.CharField(max_length=20, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        indexes = [models.Index(fields=["user", "is_active"])]
+
+    def __str__(self):
+        return f"FCM<{self.user} · {self.platform}>"

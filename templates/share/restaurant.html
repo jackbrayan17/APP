@@ -1,10 +1,75 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}{{ resto.name }} — ONE EAT{% endblock %}
+{% block title %}{{ resto.name }}{% if resto.neighborhood %} · {{ resto.neighborhood }}{% endif %} — Livraison à {{ resto.city }} | ONE EAT{% endblock %}
+
+{% block meta_description %}Commandez chez {{ resto.name }}{% if resto.neighborhood %} à {{ resto.neighborhood }}, {{ resto.city }}{% endif %} sur ONE EAT. ⭐ {{ resto.rating_label }}/5 ({{ resto.rating_count }} avis) · Livraison en {{ resto.delivery_time_label }}. {{ resto.bio|truncatewords:20 }}{% endblock %}
+
+{% block og_type %}restaurant.restaurant{% endblock %}
+{% block og_title %}{{ resto.name }} sur ONE EAT{% endblock %}
+{% block og_description %}⭐ {{ resto.rating_label }} · {{ resto.neighborhood }} — {{ resto.bio|truncatewords:24 }}{% endblock %}
+{% block og_image %}{% if resto.cover_image %}{{ request.scheme }}://{{ request.get_host }}{{ resto.cover_image.url }}{% elif resto.logo %}{{ request.scheme }}://{{ request.get_host }}{{ resto.logo.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}{% endif %}{% endblock %}
+{% block tw_title %}{{ resto.name }} sur ONE EAT{% endblock %}
+{% block tw_description %}⭐ {{ resto.rating_label }} · {{ resto.neighborhood }} — Livraison en {{ resto.delivery_time_label }}{% endblock %}
+{% block tw_image %}{% if resto.cover_image %}{{ request.scheme }}://{{ request.get_host }}{{ resto.cover_image.url }}{% elif resto.logo %}{{ request.scheme }}://{{ request.get_host }}{{ resto.logo.url }}{% endif %}{% endblock %}
+
 {% block head %}
-<meta property="og:title" content="{{ resto.name }} sur ONE EAT">
-<meta property="og:description" content="{{ resto.bio }} — ⭐ {{ resto.rating_label }} · {{ resto.neighborhood }}">
-{% if resto.logo %}<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ resto.logo.url }}">{% endif %}
+{# Données structurées Schema.org — comprises par Google, Bing et les moteurs de recherche IA #}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "{{ resto.name|escapejs }}",
+  "description": "{{ resto.bio|escapejs }}",
+  "url": "{{ request.scheme }}://{{ request.get_host }}/r/{{ resto.share_token }}/",
+  {% if resto.cover_image %}"image": "{{ request.scheme }}://{{ request.get_host }}{{ resto.cover_image.url }}",{% elif resto.logo %}"image": "{{ request.scheme }}://{{ request.get_host }}{{ resto.logo.url }}",{% endif %}
+  "servesCuisine": "{{ resto.tagline|default:'Cuisine locale'|escapejs }}",
+  "priceRange": "$$",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "{{ resto.address|default:resto.neighborhood|escapejs }}",
+    "addressLocality": "{{ resto.neighborhood|escapejs }}",
+    "addressRegion": "Littoral",
+    "addressCountry": "CM"
+  },
+  {% if resto.lat and resto.lng %}"geo": {
+    "@type": "GeoCoordinates",
+    "latitude": {{ resto.lat }},
+    "longitude": {{ resto.lng }}
+  },{% endif %}
+  {% if resto.phone %}"telephone": "{{ resto.phone|escapejs }}",{% endif %}
+  {% if resto.rating_count %}"aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "{{ resto.rating_label }}",
+    "reviewCount": "{{ resto.rating_count }}",
+    "bestRating": "5"
+  },{% endif %}
+  "potentialAction": {
+    "@type": "OrderAction",
+    "target": "{{ request.scheme }}://{{ request.get_host }}{% url 'restaurants:detail' resto.slug %}",
+    "deliveryMethod": "http://purl.org/goodrelations/v1#DeliveryModeOwnFleet"
+  }
+}
+</script>
+{% if top_dishes %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Menu",
+  "name": "Menu de {{ resto.name|escapejs }}",
+  "hasMenuSection": {
+    "@type": "MenuSection",
+    "name": "Plats populaires",
+    "hasMenuItem": [
+      {% for d in top_dishes %}{
+        "@type": "MenuItem",
+        "name": "{{ d.name|escapejs }}",
+        "offers": { "@type": "Offer", "price": "{{ d.price }}", "priceCurrency": "XAF" }
+      }{% if not forloop.last %},{% endif %}{% endfor %}
+    ]
+  }
+}
+</script>
+{% endif %}
 {% endblock %}
 {% block body %}
 <div class="min-h-[100dvh]">

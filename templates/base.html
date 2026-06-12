@@ -8,7 +8,32 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="ONE EAT">
-  <title>{% block title %}ONE EAT — Livraison à Douala{% endblock %}</title>
+  <title>{% block title %}ONE EAT — Livraison de repas à Douala{% endblock %}</title>
+
+  {# ---- SEO par défaut (surchargé par {% block head %}) ---- #}
+  <meta name="description" content="{% block meta_description %}Commandez vos plats préférés à Douala et faites-vous livrer rapidement. Restaurants locaux, grillades, fast-food et plus sur ONE EAT.{% endblock %}">
+  <meta name="robots" content="{% block robots %}index, follow, max-image-preview:large{% endblock %}">
+  <meta name="author" content="ONE EAT">
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+
+  {# Open Graph (Facebook, WhatsApp, LinkedIn, aperçu de lien dans les apps) #}
+  <meta property="og:site_name" content="ONE EAT">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:url" content="{{ request.build_absolute_uri }}">
+  <meta property="og:title" content="{% block og_title %}ONE EAT — Livraison de repas à Douala{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Commandez et faites-vous livrer vos plats préférés à Douala.{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}{% endblock %}">
+
+  {# Twitter Card #}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block tw_title %}ONE EAT — Livraison de repas à Douala{% endblock %}">
+  <meta name="twitter:description" content="{% block tw_description %}Commandez et faites-vous livrer vos plats préférés à Douala.{% endblock %}">
+  <meta name="twitter:image" content="{% block tw_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'icons/icon-512.png' %}{% endblock %}">
+
+  {# Lien profond vers l'app native (Smart App Banner iOS + intent Android) #}
+  <meta name="apple-itunes-app" content="app-id=PLACEHOLDER_APPSTORE_ID">
+
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="{% static 'icons/icon-192.png' %}">
   <link rel="icon" href="{% static 'icons/icon-192.png' %}">
