@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy website via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
@@ -101,7 +101,7 @@ jobs:
           ref: ${{ github.event.before }}
 
       - name: Deploy previous stable commit via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@4.3.6
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
