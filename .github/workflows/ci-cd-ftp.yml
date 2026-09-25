@@ -51,11 +51,19 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: ${{ secrets.FTP_PORT }}
-          secure: true
-          passive: true
           local-dir: ./
-          remote-dir: ${{ env.FTP_REMOTE_DIR }}
-          exclude: .git*,.github,mobile/**,db.sqlite3
+          server-dir: ${{ env.FTP_REMOTE_DIR }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            mobile/**
+            db.sqlite3
+            **/__pycache__/**
+            **/*.pyc
+            *.log
+            media.zip
+            tmp/**
 
       - name: Run remote Django maintenance commands
         if: ${{ env.SSH_HOST != '' && env.SSH_USERNAME != '' && (env.SSH_PRIVATE_KEY != '' || env.SSH_PASSWORD != '') }}
@@ -108,11 +116,19 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: ${{ secrets.FTP_PORT }}
-          secure: true
-          passive: true
           local-dir: ./
-          remote-dir: ${{ env.FTP_REMOTE_DIR }}
-          exclude: .git*,.github,mobile/**,db.sqlite3
+          server-dir: ${{ env.FTP_REMOTE_DIR }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            mobile/**
+            db.sqlite3
+            **/__pycache__/**
+            **/*.pyc
+            *.log
+            media.zip
+            tmp/**
 
   notify:
     name: Send status email
