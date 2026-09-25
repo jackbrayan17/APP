@@ -10,6 +10,7 @@ router = DefaultRouter()
 router.register("restaurants", views.RestaurantViewSet, basename="restaurant")
 router.register("categories", views.CategoryViewSet, basename="category")
 router.register("orders", views.OrderViewSet, basename="order")
+router.register("dishes", views.DishViewSet, basename="dish")
 
 urlpatterns = [
     path("", include(router.urls)),
@@ -23,6 +24,7 @@ urlpatterns = [
 
     # Commandes client
     path("checkout/", views.api_checkout, name="checkout"),
+    path("orders/<str:number>/tracking/", views.api_order_tracking, name="order_tracking"),
     path("orders/<str:number>/review/", views.api_review_order, name="review_order"),
     path("promo/validate/", views.api_validate_promo, name="validate_promo"),
 
@@ -32,6 +34,7 @@ urlpatterns = [
 
     # Livreur
     path("delivery/nearby/", views.nearby_orders, name="nearby_orders"),
+    path("delivery/orders/", views.api_driver_orders, name="driver_orders"),
     path("delivery/position/", views.api_driver_position, name="driver_position"),
     path("delivery/orders/<str:number>/accept/", views.api_driver_accept, name="driver_accept"),
     path("delivery/orders/<str:number>/status/", views.api_driver_status, name="driver_status"),
@@ -39,6 +42,7 @@ urlpatterns = [
     # Partage public (deep links)
     path("share/restaurant/<str:token>/", views.api_share_restaurant, name="share_restaurant"),
     path("share/order/<str:token>/", views.api_share_order, name="share_order"),
+    path("share/order/<str:token>/tracking/", views.api_share_order_tracking, name="share_order_tracking"),
 
     # Notifications push natives (FCM)
     path("devices/register/", views.api_register_device, name="register_device"),

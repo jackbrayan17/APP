@@ -20,6 +20,7 @@ urlpatterns = [
     path("favoris/", views.favorites_list, name="favorites"),
     path("favoris/<slug:slug>/", views.favorite_toggle, name="favorite_toggle"),
     # Public
+    path("plat/<int:dish_id>/", views.dish_detail, name="dish_detail"),
     path("restaurant/<slug:slug>/", views.restaurant_detail, name="detail"),
     path("r/<str:token>/", views.restaurant_share, name="share"),
 ]

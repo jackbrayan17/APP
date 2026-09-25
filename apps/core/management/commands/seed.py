@@ -1,10 +1,14 @@
 """Donnees de demonstration ONE EAT (Douala)."""
 import random
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.utils.text import slugify
+from PIL import Image, ImageDraw
 
 from apps.restaurants.models import Category, Restaurant, MenuSection, Dish
 from apps.delivery.models import DriverProfile
@@ -129,6 +133,96 @@ RESTOS = [
     },
 ]
 
+DIETARY_INFO = {
+    "Ndolé Spécial + Riz": (True, 620, 34, "riche en protéines, fibres, cuisine locale", "Un bon choix complet; demandez moins d'huile si vous voulez un repas plus léger."),
+    "Okok + Bâton de Manioc": (True, 540, 22, "fibres, végétal, traditionnel", "Riche en fibres; idéal pour un déjeuner rassasiant sans friture."),
+    "Sanga (Maïs + Haricots)": (True, 480, 18, "végétarien, fibres, énergie lente", "Bon équilibre glucides-fibres pour tenir l'après-midi."),
+    "Riz sauté au poulet": (False, 690, 31, "protéiné, copieux", "Préférez une portion de légumes en plus pour équilibrer l'assiette."),
+    "Poisson braisé + Miondo": (True, 610, 38, "protéiné, grillé, oméga-3", "Une option intéressante si la sauce pimentée reste servie à part."),
+    "Beignets Haricots": (False, 520, 14, "snack, végétarien", "A réserver aux petites faims; accompagnez d'eau plutôt que boisson sucrée."),
+    "Poulet braisé entier": (False, 980, 72, "très protéiné, grillé, à partager", "Plat copieux, meilleur à partager ou à compléter avec crudités."),
+    "Demi-poulet grillé": (True, 580, 42, "protéiné, grillé, faible sucre", "Choisissez plantain ou frites, pas forcément les deux."),
+    "Brochettes de bœuf (x5)": (True, 520, 36, "protéiné, grillé", "Bonne option protéinée; ajoutez un accompagnement léger."),
+    "Frites de plantain": (False, 430, 3, "accompagnement, frit", "Accompagnement plaisir; portion modérée recommandée."),
+    "Alloco": (False, 470, 3, "accompagnement, frit", "Très énergétique; équilibrer avec une protéine grillée."),
+    "Eru + Water Fufu": (True, 650, 32, "fibres, protéines, traditionnel", "Repas complet, riche en feuilles; demandez moins d'huile si besoin."),
+    "Koki + Plantain": (True, 520, 19, "végétarien, vapeur, fibres", "Cuisson vapeur intéressante pour un repas local plus doux."),
+    "Poulet DG": (False, 820, 38, "copieux, protéiné", "Très généreux; bon en repas principal unique."),
+    "Côtes de bœuf (500g)": (False, 1050, 70, "très protéiné, premium", "Riche et très copieux; à accompagner de légumes plutôt que frites."),
+    "Gigot d'agneau": (False, 920, 62, "protéiné, premium", "Option gourmande; privilégiez une portion modérée."),
+    "Mixed Grill": (False, 1180, 78, "à partager, très protéiné", "Pensé pour partager; évitez d'en faire une portion individuelle complète."),
+    "Pizza Margherita": (False, 760, 28, "végétarien, fromage", "Plus légère que les pizzas garnies, mais reste riche en fromage."),
+    "Pizza Reine": (False, 840, 34, "copieux, fromage", "Choisissez une demi-portion avec salade si disponible."),
+    "Pizza 4 Fromages": (False, 910, 36, "fromage, riche", "Option plaisir; à équilibrer sur le reste de la journée."),
+    "Classic Beef Burger": (False, 820, 39, "protéiné, fast food", "Demandez sauce à part pour mieux contrôler l'apport."),
+    "Chicken Crispy": (False, 790, 35, "poulet, croustillant", "Poulet pané plus riche; préférez eau ou boisson non sucrée."),
+    "Double Cheese": (False, 1040, 55, "très copieux, fromage", "Très rassasiant; évitez de multiplier les sides."),
+    "Frites maison": (False, 430, 5, "accompagnement, frit", "Portion plaisir, à partager si possible."),
+    "Milkshake vanille": (False, 520, 11, "dessert, sucré", "A considérer comme dessert plutôt que simple boisson."),
+}
+
+
+DEMO_IMAGE_PALETTES = [
+    ("#FFF4E8", "#FF6B1A", "#2F855A", "#9C4221"),
+    ("#F7FAFC", "#E53E3E", "#F6AD55", "#2D3748"),
+    ("#F0FFF4", "#38A169", "#ECC94B", "#744210"),
+    ("#FFFAF0", "#DD6B20", "#805AD5", "#2F855A"),
+    ("#F8F5FF", "#6B46C1", "#ED8936", "#276749"),
+]
+
+
+def ensure_demo_dish_image(dish):
+    """Cree une image locale deterministic pour les plats de demo."""
+    slug = slugify(dish.name) or f"dish-{dish.id}"
+    real_rel_path = Path("dishes") / "demo" / f"{slug}.jpg"
+    real_abs_path = settings.MEDIA_ROOT / real_rel_path
+    if real_abs_path.exists():
+        dish.image = str(real_rel_path).replace("\\", "/")
+        return
+
+    rel_path = Path("dishes") / "demo" / f"{slug}.png"
+    abs_path = settings.MEDIA_ROOT / rel_path
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not abs_path.exists():
+        palette = DEMO_IMAGE_PALETTES[dish.id % len(DEMO_IMAGE_PALETTES)]
+        bg, main, accent, dark = palette
+        rng = random.Random(slug)
+
+        img = Image.new("RGB", (900, 700), bg)
+        draw = ImageDraw.Draw(img)
+
+        # Fond doux, sans texte, pour rester lisible en miniature.
+        for _ in range(18):
+            x = rng.randint(-80, 900)
+            y = rng.randint(-80, 700)
+            r = rng.randint(30, 120)
+            color = rng.choice([main, accent])
+            draw.ellipse((x, y, x + r, y + r), fill=color)
+
+        # Assiette.
+        draw.ellipse((185, 105, 715, 635), fill="#FFFFFF", outline="#E5E7EB", width=10)
+        draw.ellipse((245, 165, 655, 575), fill="#F9FAFB", outline="#F3F4F6", width=5)
+
+        # Composition du plat.
+        for i in range(9):
+            cx = rng.randint(315, 585)
+            cy = rng.randint(235, 465)
+            rx = rng.randint(34, 82)
+            ry = rng.randint(24, 66)
+            color = [main, accent, dark, "#FBBF24", "#16A34A"][i % 5]
+            draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=color)
+
+        for _ in range(14):
+            x = rng.randint(300, 600)
+            y = rng.randint(210, 490)
+            draw.line((x, y, x + rng.randint(-50, 50), y + rng.randint(-35, 35)),
+                      fill="#14532D", width=rng.randint(4, 8))
+
+        img.save(abs_path, "PNG", optimize=True)
+
+    dish.image = str(rel_path).replace("\\", "/")
+
 
 class Command(BaseCommand):
     help = "Charge des donnees de demonstration ONE EAT"
@@ -213,8 +307,21 @@ class Command(BaseCommand):
                                   "category": resto.categories.first(),
                                   "orders_count": random.randint(5, 120)})
                     dish.section = section; dish.description = d_desc
-                    dish.price = price; dish.save()
+                    dish.price = price; dish.prep_time = prep; dish.is_popular = popular
+                    dish.category = resto.categories.first()
+                    diet = DIETARY_INFO.get(d_name)
+                    if diet:
+                        (dish.is_diet, dish.calories, dish.protein_grams,
+                         dish.dietary_tags, dish.dietary_note) = diet
+                    ensure_demo_dish_image(dish)
+                    dish.save()
                     all_dishes.append(dish)
+
+            hero_dish = resto.dishes.filter(is_popular=True, image__isnull=False).first() or resto.dishes.filter(image__isnull=False).first()
+            if hero_dish:
+                resto.cover_image = hero_dish.image.name
+                resto.logo = hero_dish.image.name
+                resto.save(update_fields=["cover_image", "logo"])
 
         # --- Livreurs ---
         for i in range(3):
@@ -254,7 +361,7 @@ class Command(BaseCommand):
                 restaurant=promo_resto, title="Happy Hour Burgers",
                 description="-25% sur tous les burgers de 15h à 18h !",
                 discount_type=Promotion.DiscountType.PERCENT, discount_value=25,
-                ends_at=timezone.now() + timedelta(days=14), banner_color="#E53935")
+                ends_at=timezone.now() + timedelta(days=14))
             promo.dishes.set(promo_resto.dishes.all()[:3])
 
         # --- Commandes de demo ---
@@ -289,8 +396,11 @@ class Command(BaseCommand):
         # Recalcul des notes
         for r in Restaurant.objects.all():
             r.recompute_rating()
+            demo_rating = next((data["rating"] for data in RESTOS if data["name"] == r.name), None)
+            if r.rating_count == 0 and demo_rating is not None:
+                r.rating = demo_rating
             r.orders_count = r.orders.count()
-            r.save(update_fields=["orders_count"])
+            r.save(update_fields=["rating", "orders_count"])
 
         self.stdout.write(self.style.SUCCESS(
             f"\n[OK] Seed termine : {Restaurant.objects.count()} restaurants, "

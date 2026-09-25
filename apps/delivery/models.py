@@ -6,7 +6,7 @@ from apps.restaurants.models import Restaurant
 
 
 class DriverProfile(TimeStampedModel):
-    """Profil livreur. Peut etre rattache a un restaurant (employe) ou freelance."""
+    """Profil livreur. Peut etre rattache a un restaurant par l'equipe ONE EAT."""
 
     class Vehicle(models.TextChoices):
         MOTO = "moto", "Moto"
@@ -16,7 +16,7 @@ class DriverProfile(TimeStampedModel):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                                 related_name="driver_profile")
-    # Livreur enregistre sous un restaurant (gestion par le resto)
+    # Affectation optionnelle geree par la plateforme.
     restaurant = models.ForeignKey(Restaurant, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="drivers")
 

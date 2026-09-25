@@ -3,7 +3,11 @@
 {% block title %}Espace Livreur — ONE EAT{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>#map{ height:300px; border-radius:1rem; z-index:0; }</style>
+<style>
+  #map{ height:300px; border-radius:1rem; z-index:0; background:#eef2f7; }
+  #mapStatus{ pointer-events:none; }
+  .driver-pin{ width:18px; height:18px; border-radius:999px; background:#FF6B1A; border:3px solid #fff; box-shadow:0 8px 20px rgba(0,0,0,.22); }
+</style>
 {% endblock %}
 {% block shell_class %}safe-bottom{% endblock %}
 {% block body %}
@@ -18,14 +22,24 @@
 </header>
 
 <main class="px-4 py-4">
-  <div class="grid grid-cols-3 gap-2 mb-4">
+  <div class="grid grid-cols-2 gap-2 mb-4">
     <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-brand">{{ available|length }}</p><p class="text-[11px] text-gray-500">Disponibles</p></div>
     <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-gray-900">{{ my_active.count }}</p><p class="text-[11px] text-gray-500">En cours</p></div>
+    <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-gray-900">{{ total_orders }}</p><p class="text-[11px] text-gray-500">Total commandes</p></div>
     <div class="rounded-xl bg-gray-50 p-3 text-center"><p class="text-xl font-extrabold text-gray-900">{{ delivered_count }}</p><p class="text-[11px] text-gray-500">Livrées</p></div>
   </div>
+  <div class="grid grid-cols-2 gap-2 mb-4">
+    <div class="rounded-xl bg-brand/10 p-3"><p class="text-lg font-extrabold text-brand">{{ total_amount }} FCFA</p><p class="text-[11px] text-gray-500">Montant total des commandes prises</p></div>
+    <div class="rounded-xl bg-green-50 p-3"><p class="text-lg font-extrabold text-green-700">{{ delivered_amount }} FCFA</p><p class="text-[11px] text-gray-500">Montant des commandes livrées</p></div>
+  </div>
 
-  <div id="map" class="mb-4 bg-gray-100"></div>
-  <p class="text-xs text-gray-400 mb-4">📍 Périmètre de {{ profile.service_radius_km }} km autour de votre position (Douala).</p>
+  <div class="relative mb-4">
+    <div id="map" class="bg-gray-100"></div>
+    <div id="mapStatus" class="absolute left-3 top-3 z-[500] rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-bold text-gray-600 shadow">
+      Chargement de la carte...
+    </div>
+  </div>
+  <p class="text-xs text-gray-400 mb-4">Périmètre de {{ profile.service_radius_km }} km autour de votre position (Douala).</p>
 
   {% if my_active %}
   <h2 class="font-extrabold text-gray-900 mb-2">Mes livraisons en cours</h2>
@@ -33,7 +47,7 @@
     {% for o in my_active %}
     <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
       <p class="font-bold text-gray-900">{{ o.number }} — {{ o.restaurant.name }}</p>
-      <p class="text-sm text-gray-600 mt-1">📍 {{ o.delivery_address }}</p>
+      <p class="text-sm text-gray-600 mt-1">{{ o.delivery_address }}</p>
       <div class="flex gap-2 mt-3">
         <a href="{% url 'delivery:order_map' o.number %}" class="flex-1 text-center py-2 rounded-lg bg-white border border-gray-200 text-sm font-bold">Voir carte</a>
         <form method="post" action="{% url 'delivery:update_status' o.id %}" class="flex-1">{% csrf_token %}
@@ -46,6 +60,26 @@
   </div>
   {% endif %}
 
+  <h2 class="font-extrabold text-gray-900 mb-2">Mes commandes</h2>
+  <div class="space-y-2 mb-5">
+    {% for o in my_orders %}
+    <div class="rounded-2xl border border-gray-100 p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="font-bold text-gray-900">{{ o.number }} — {{ o.restaurant.name }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">{{ o.item_count }} article(s) • {{ o.created_at|date:"d/m H:i" }}</p>
+        </div>
+        <span class="font-extrabold text-brand">{{ o.total }} FCFA</span>
+      </div>
+      <p class="text-sm text-gray-600 mt-1">{{ o.delivery_address }}</p>
+      <div class="mt-2 flex items-center justify-between">
+        {% include "client/_status_badge.html" with status=o.status label=o.status_label %}
+        <a href="{% url 'delivery:order_map' o.number %}" class="text-brand text-xs font-bold">Voir carte</a>
+      </div>
+    </div>
+    {% empty %}<p class="text-gray-400 text-center py-6 text-sm">Aucune commande prise pour le moment.</p>{% endfor %}
+  </div>
+
   <h2 class="font-extrabold text-gray-900 mb-2">Commandes à proximité</h2>
   <div class="space-y-2">
     {% for o in available %}
@@ -53,11 +87,15 @@
       <div class="flex items-start justify-between">
         <div>
           <p class="font-bold text-gray-900">{{ o.restaurant.name }}</p>
-          <p class="text-xs text-gray-500 mt-0.5">{{ o.number }} • {{ o.item_count }} article(s){% if o.distance_km %} • {{ o.distance_km }} km{% endif %}</p>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {{ o.number }} • {{ o.item_count }} article(s)
+            {% if o.route_distance_km %} • {{ o.route_distance_km }} km route{% elif o.distance_km %} • {{ o.distance_km }} km{% endif %}
+            {% if o.route_duration_min %} • {{ o.route_duration_min }} min{% endif %}
+          </p>
         </div>
         <span class="font-extrabold text-brand">{{ o.total }} FCFA</span>
       </div>
-      <p class="text-sm text-gray-600 mt-1">📍 {{ o.delivery_address }}</p>
+      <p class="text-sm text-gray-600 mt-1">{{ o.delivery_address }}</p>
       <form method="post" action="{% url 'delivery:accept' o.id %}" class="mt-3">{% csrf_token %}
         <button class="w-full py-2.5 rounded-xl bg-gray-900 text-white font-bold text-sm">Accepter la course</button>
       </form>
@@ -70,11 +108,45 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const orders = {{ map_orders_json|safe }};
-  const center = [{{ profile.current_lat|default:DOUALA_CENTER.lat }}, {{ profile.current_lng|default:DOUALA_CENTER.lng }}];
-  const map = L.map('map').setView(center, 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-  const me = L.circleMarker(center, {radius:9, color:'#FF6B1A', fillColor:'#FF6B1A', fillOpacity:1}).addTo(map).bindPopup('Vous');
-  L.circle(center, {radius:{{ profile.service_radius_km }}*1000, color:'#FF6B1A', weight:1, fillOpacity:.05}).addTo(map);
+  const center = {{ map_center_json|safe }};
+  const serviceRadiusM = {{ service_radius_m }};
+  const mapStatus = document.getElementById('mapStatus');
+  const map = L.map('map', {zoomControl:true}).setView(center, 13);
+  const tileProviders = [
+    {
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      options: {maxZoom:19, attribution:'© OpenStreetMap'}
+    },
+    {
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      options: {maxZoom:20, subdomains:'abcd', attribution:'© OpenStreetMap © CARTO'}
+    }
+  ];
+  let activeTileLayer = null;
+  function tileLoaded(){
+    mapStatus.classList.add('hidden');
+  }
+  function useTileLayer(index){
+    if(activeTileLayer) activeTileLayer.remove();
+    const provider = tileProviders[index];
+    activeTileLayer = L.tileLayer(provider.url, provider.options).addTo(map);
+    activeTileLayer.on('load', tileLoaded);
+    activeTileLayer.on('tileerror', function(){
+      if(index + 1 < tileProviders.length) useTileLayer(index + 1);
+      else mapStatus.textContent = 'Carte indisponible';
+    });
+    setTimeout(function(){
+      if(!document.querySelector('#map .leaflet-tile-loaded') && index + 1 < tileProviders.length){
+        useTileLayer(index + 1);
+      }
+    }, 2500);
+  }
+  useTileLayer(0);
+  setTimeout(function(){ map.invalidateSize(); }, 150);
+
+  const driverIcon = L.divIcon({className:'', html:'<div class="driver-pin"></div>', iconSize:[18,18], iconAnchor:[9,9]});
+  const me = L.marker(center, {icon:driverIcon}).addTo(map).bindPopup('Vous');
+  L.circle(center, {radius:serviceRadiusM, color:'#FF6B1A', weight:1, fillOpacity:.05}).addTo(map);
   orders.forEach(o => {
     if(o.rlat && o.rlng){
       L.marker([o.rlat, o.rlng]).addTo(map).bindPopup(`<b>${o.restaurant}</b><br>${o.total} FCFA${o.distance?'<br>'+o.distance+' km':''}`);
@@ -92,6 +164,7 @@
     navigator.geolocation.watchPosition(pos => {
       const lat=pos.coords.latitude, lng=pos.coords.longitude;
       me.setLatLng([lat,lng]);
+      map.panTo([lat,lng], {animate:true, duration:.4});
       fetch("{% url 'delivery:update_location' %}", {method:'POST',
         headers:{'Content-Type':'application/json','X-CSRFToken':OE.csrftoken},
         body: JSON.stringify({lat,lng})});

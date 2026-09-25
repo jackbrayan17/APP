@@ -1,14 +1,23 @@
 {% load static %}
 <div class="flex gap-3 py-4 border-b border-gray-50">
-  <div class="w-[88px] h-[88px] rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
+  <a href="{% url 'restaurants:dish_detail' dish.id %}" class="w-[88px] h-[88px] rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
     {% if dish.image %}<img src="{{ dish.image.url }}" class="w-full h-full object-cover" alt="{{ dish.name }}">
-    {% else %}<div class="w-full h-full flex items-center justify-center text-3xl">🍽️</div>{% endif %}
-    {% if dish.has_promo %}<span class="absolute top-1 left-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded" style="background:{{ dish.active_promo.banner_color }}">{{ dish.active_promo.label }}</span>{% endif %}
-  </div>
+    {% else %}<div class="w-full h-full flex items-center justify-center"><svg class="w-8 h-8 text-brand" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 15.75H3m18 0A2.25 2.25 0 0118.75 18H5.25A2.25 2.25 0 013 15.75m18 0A9 9 0 003 15.75M12 3v3.75m-3.75.75l-1.5-1.5m9 1.5l1.5-1.5"/></svg></div>{% endif %}
+    {% if dish.has_promo %}<span class="absolute top-1 left-1 text-[10px] font-bold text-white px-1.5 py-0.5 rounded bg-brand">{{ dish.active_promo.label }}</span>{% endif %}
+  </a>
   <div class="flex-1 min-w-0">
-    <h3 class="font-bold text-gray-900 leading-tight">{{ dish.name }}
-      {% if dish.is_popular %}<span class="text-[10px] align-middle">🔥</span>{% endif %}</h3>
+    <a href="{% url 'restaurants:dish_detail' dish.id %}" class="block">
+      <h3 class="font-bold text-gray-900 leading-tight">{{ dish.name }}
+        {% if dish.is_popular %}<span class="inline-flex align-middle ml-1 text-brand"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 01.9.56l1.9 3.86 4.26.62a1 1 0 01.55 1.7l-3.08 3 .73 4.23a1 1 0 01-1.45 1.05L10 15.02l-3.81 2a1 1 0 01-1.45-1.05l.73-4.23-3.08-3a1 1 0 01.55-1.7l4.26-.62L9.1 2.56A1 1 0 0110 2z"/></svg></span>{% endif %}</h3>
+    </a>
     <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ dish.description }}</p>
+    {% if dish.is_diet or dish.calories or dish.protein_grams %}
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      {% if dish.is_diet %}<span class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Diététique</span>{% endif %}
+      {% if dish.calories %}<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">{{ dish.calories }} kcal</span>{% endif %}
+      {% if dish.protein_grams %}<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">{{ dish.protein_grams }}g prot.</span>{% endif %}
+    </div>
+    {% endif %}
     <div class="flex items-center justify-between mt-2">
       <div>
         {% if dish.has_promo %}
@@ -19,7 +28,10 @@
           <span class="text-lg font-extrabold" style="color:{{ dish.restaurant.brand_color }}">{{ dish.price }}</span>
           <span class="text-xs font-semibold text-gray-500">{{ CURRENCY }}</span>
         {% endif %}
-        <span class="text-[11px] text-gray-400 ml-2">🕐 {{ dish.prep_time }} min</span>
+        <span class="inline-flex items-center gap-1 text-[11px] text-gray-400 ml-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg>
+          {{ dish.prep_time }} min
+        </span>
       </div>
       <button data-add-cart="{{ dish.id }}"
               class="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg active:scale-90 transition"

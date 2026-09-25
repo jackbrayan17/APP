@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from django.contrib.auth import authenticate
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q, Count, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, mixins, status
@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 
 from apps.core.geo import haversine_km
+from apps.core.routing import road_route, tracking_payload
 from apps.restaurants.models import Restaurant, Category, Dish
 from apps.orders.models import Order, OrderItem, Review
 from apps.promotions.models import PromoCode, PromoCodeRedemption
@@ -22,6 +23,20 @@ from .serializers import (
     RegisterSerializer, CheckoutSerializer, ReviewCreateSerializer,
     DriverPositionSerializer, DeviceTokenSerializer,
 )
+
+
+def _tracking_response(order, request=None):
+    payload = tracking_payload(order)
+    payload["order"] = OrderSerializer(order, context={"request": request}).data
+    return payload
+
+
+def _can_track(user, order):
+    return (
+        user.is_staff
+        or order.customer_id == user.id
+        or order.driver_id == user.id
+    )
 
 
 @api_view(["POST"])
@@ -105,13 +120,42 @@ class RestaurantViewSet(viewsets.ReadOnlyModelViewSet):
         if hood:
             qs = qs.filter(neighborhood=hood)
         if q:
-            qs = qs.filter(name__icontains=q)
+            qs = qs.filter(
+                Q(name__icontains=q) |
+                Q(bio__icontains=q) |
+                Q(dishes__name__icontains=q) |
+                Q(dishes__description__icontains=q)
+            ).distinct()
         return qs
 
     @action(detail=True, methods=["get"])
     def reviews(self, request, slug=None):
         resto = self.get_object()
         return Response(ReviewSerializer(resto.reviews.all()[:30], many=True).data)
+
+
+class DishViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = DishSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        qs = (Dish.objects.filter(is_available=True, restaurant__is_active=True)
+              .select_related("restaurant", "section", "category")
+              .order_by("-is_popular", "-orders_count", "name"))
+        q = self.request.query_params.get("q")
+        cat = self.request.query_params.get("cat")
+        restaurant = self.request.query_params.get("restaurant")
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q) |
+                Q(description__icontains=q) |
+                Q(restaurant__name__icontains=q)
+            )
+        if cat and cat != "tous":
+            qs = qs.filter(Q(category__slug=cat) | Q(restaurant__categories__slug=cat)).distinct()
+        if restaurant:
+            qs = qs.filter(restaurant__slug=restaurant)
+        return qs
 
 
 class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -134,15 +178,57 @@ def nearby_orders(request):
     out = []
     for o in orders.select_related("restaurant"):
         d = None
-        if prof.current_lat and o.restaurant.lat:
+        if prof.current_lat is not None and prof.current_lng is not None \
+                and o.restaurant.lat is not None and o.restaurant.lng is not None:
             d = haversine_km(prof.current_lat, prof.current_lng,
                              o.restaurant.lat, o.restaurant.lng)
             if d is None or d > prof.service_radius_km:
                 continue
         data = OrderSerializer(o).data
         data["distance_km"] = round(d, 1) if d else None
+        if d is not None and prof.current_lat is not None and prof.current_lng is not None:
+            route = road_route(
+                prof.current_lat, prof.current_lng,
+                o.restaurant.lat, o.restaurant.lng,
+            )
+            data["route_distance_km"] = route["distance_km"]
+            data["route_duration_min"] = route["duration_min"]
+            data["route_provider"] = route["provider"]
         out.append(data)
     return Response(out)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_driver_orders(request):
+    """Commandes prises par le livreur + totaux de son tableau de bord."""
+    prof = DriverProfile.objects.filter(user=request.user).first()
+    if not prof:
+        return Response({"detail": "Profil livreur introuvable"}, status=403)
+
+    orders = (Order.objects.filter(driver=request.user)
+              .select_related("restaurant", "customer")
+              .prefetch_related("items")
+              .order_by("-created_at"))
+    stats = orders.aggregate(
+        total_orders=Count("id"),
+        total_amount=Sum("total"),
+    )
+    delivered = orders.filter(status=Order.Status.DELIVERED).aggregate(
+        delivered_orders=Count("id"),
+        delivered_amount=Sum("total"),
+    )
+    active_orders = orders.filter(status__in=[
+        Order.Status.PICKED_UP, Order.Status.ON_THE_WAY
+    ]).count()
+    return Response({
+        "total_orders": stats["total_orders"] or 0,
+        "active_orders": active_orders,
+        "delivered_orders": delivered["delivered_orders"] or 0,
+        "total_amount": stats["total_amount"] or 0,
+        "delivered_amount": delivered["delivered_amount"] or 0,
+        "orders": OrderSerializer(orders[:50], many=True).data,
+    })
 
 
 # ----------------------------------------------------------------------------
@@ -269,10 +355,16 @@ def api_driver_position(request):
         prof.is_available = ser.validated_data["is_available"]
     prof.last_seen = timezone.now()
     prof.save(update_fields=["current_lat", "current_lng", "is_available", "last_seen"])
-    # Répercute la position sur les commandes en cours du livreur
-    Order.objects.filter(driver=request.user, status=Order.Status.ON_THE_WAY).update(
+    # Répercute la position sur les commandes actives du livreur en temps réel.
+    active = [Order.Status.PICKED_UP, Order.Status.ON_THE_WAY]
+    updated = Order.objects.filter(driver=request.user, status__in=active).update(
         driver_lat=prof.current_lat, driver_lng=prof.current_lng)
-    return Response({"ok": True})
+    return Response({
+        "ok": True,
+        "lat": prof.current_lat,
+        "lng": prof.current_lng,
+        "active_orders_updated": updated,
+    })
 
 
 @api_view(["POST"])
@@ -286,12 +378,28 @@ def api_driver_accept(request, number):
         return Response({"detail": "Course déjà prise."}, status=409)
     order.driver = request.user
     order.status = Order.Status.PICKED_UP
-    order.save(update_fields=["driver", "status"])
+    order.driver_lat = prof.current_lat
+    order.driver_lng = prof.current_lng
+    order.save(update_fields=["driver", "status", "driver_lat", "driver_lng"])
     from apps.core.services import notify
     notify(order.customer, f"Commande {order.number} prise en charge",
            f"{request.user.display_name} récupère votre commande.",
            url=f"/suivi/{order.number}/")
     return Response(OrderSerializer(order).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_order_tracking(request, number):
+    """Tracking temps réel authentifié avec route routière et position livreur."""
+    order = get_object_or_404(
+        Order.objects.select_related("restaurant", "driver", "driver__driver_profile")
+        .prefetch_related("items"),
+        number=number,
+    )
+    if not _can_track(request.user, order):
+        return Response({"detail": "Suivi non autorisé."}, status=403)
+    return Response(_tracking_response(order, request))
 
 
 @api_view(["POST"])
@@ -334,6 +442,17 @@ def api_share_restaurant(request, token):
 def api_share_order(request, token):
     order = get_object_or_404(Order, share_token=token)
     return Response(OrderSerializer(order).data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_share_order_tracking(request, token):
+    order = get_object_or_404(
+        Order.objects.select_related("restaurant", "driver", "driver__driver_profile")
+        .prefetch_related("items"),
+        share_token=token,
+    )
+    return Response(_tracking_response(order, request))
 
 
 # ----------------------------------------------------------------------------

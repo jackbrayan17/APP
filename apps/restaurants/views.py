@@ -7,7 +7,6 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import User
-from apps.delivery.models import DriverProfile
 from apps.orders.models import Order
 from apps.promotions.models import Promotion
 from .models import Restaurant, Category, MenuSection, Dish, RestaurantPhoto, Favorite
@@ -59,6 +58,27 @@ def restaurant_detail(request, slug):
         "cart_count": _cart_count(request),
     }
     return render(request, "client/restaurant_detail.html", context)
+
+
+def dish_detail(request, dish_id):
+    """Page detail d'un plat, avec description complete et restaurant source."""
+    dish = get_object_or_404(
+        Dish.objects.select_related("restaurant", "section", "category"),
+        id=dish_id, is_available=True, restaurant__is_active=True,
+    )
+    resto = dish.restaurant
+    related = (resto.dishes.filter(is_available=True)
+               .exclude(id=dish.id)
+               .order_by("-is_popular", "name")[:4])
+    is_favorite = (request.user.is_authenticated and
+                   Favorite.objects.filter(user=request.user, restaurant=resto).exists())
+    return render(request, "client/dish_detail.html", {
+        "dish": dish,
+        "resto": resto,
+        "related": related,
+        "is_favorite": is_favorite,
+        "cart_count": _cart_count(request),
+    })
 
 
 def restaurant_share(request, token):
@@ -149,6 +169,11 @@ def dish_save(request):
     dish.description = request.POST.get("description", "")
     dish.price = int(request.POST.get("price") or 0)
     dish.prep_time = int(request.POST.get("prep_time") or 20)
+    dish.is_diet = request.POST.get("is_diet") == "on"
+    dish.calories = int(request.POST["calories"]) if request.POST.get("calories") else None
+    dish.protein_grams = int(request.POST["protein_grams"]) if request.POST.get("protein_grams") else None
+    dish.dietary_tags = request.POST.get("dietary_tags", "")
+    dish.dietary_note = request.POST.get("dietary_note", "")
     section_id = request.POST.get("section")
     dish.section = MenuSection.objects.filter(id=section_id, restaurant=resto).first() if section_id else None
     cat_id = request.POST.get("category")
@@ -260,17 +285,11 @@ def drivers_manage(request):
     if not resto:
         return redirect("restaurants:onboarding")
     if request.method == "POST":
-        email = request.POST.get("email", "").strip().lower()
-        user = User.objects.filter(email__iexact=email).first()
-        if user:
-            user.role = User.Role.DRIVER
-            user.save(update_fields=["role"])
-            DriverProfile.objects.update_or_create(
-                user=user, defaults={"restaurant": resto,
-                                      "phone": request.POST.get("phone", "")})
-            messages.success(request, f"{user.display_name} ajoute comme livreur.")
-        else:
-            messages.error(request, "Aucun utilisateur avec cet email. Demandez-lui de s'inscrire.")
+        messages.error(
+            request,
+            "Les livreurs sont affectés par l'équipe ONE EAT. "
+            "Contactez l'administration pour une modification.",
+        )
         return redirect("restaurants:drivers")
     return render(request, "restaurant_dashboard/drivers.html",
                   {"resto": resto, "drivers": resto.drivers.select_related("user")})
@@ -289,7 +308,6 @@ def promos_manage(request):
             discount_type=request.POST.get("discount_type", "percent"),
             discount_value=int(request.POST.get("discount_value") or 0),
             ends_at=request.POST.get("ends_at") or timezone.now() + timezone.timedelta(days=7),
-            banner_color=request.POST.get("banner_color", "#E53935"),
         )
         dish_ids = request.POST.getlist("dishes")
         promo.dishes.set(resto.dishes.filter(id__in=dish_ids))

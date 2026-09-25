@@ -172,6 +172,16 @@ class Dish(TimeStampedModel):
     image = models.ImageField(upload_to="dishes/", blank=True, null=True)
     video = models.FileField(upload_to="dishes/videos/", blank=True, null=True)
 
+    is_diet = models.BooleanField(default=False, help_text="Plat recommande pour une alimentation equilibree")
+    calories = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Calories estimees par portion")
+    protein_grams = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Proteines estimees par portion")
+    dietary_tags = models.CharField(
+        max_length=160, blank=True,
+        help_text="Tags separes par des virgules, ex: leger, riche en proteines")
+    dietary_note = models.CharField(
+        max_length=220, blank=True,
+        help_text="Conseil court pour aider le client a choisir")
+
     is_available = models.BooleanField(default=True)
     is_popular = models.BooleanField(default=False)
     orders_count = models.PositiveIntegerField(default=0)
@@ -202,3 +212,7 @@ class Dish(TimeStampedModel):
     @property
     def has_promo(self):
         return self.active_promo is not None
+
+    @property
+    def dietary_tag_list(self):
+        return [tag.strip() for tag in self.dietary_tags.split(",") if tag.strip()]

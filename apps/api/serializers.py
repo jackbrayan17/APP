@@ -16,11 +16,17 @@ class DishSerializer(serializers.ModelSerializer):
     current_price = serializers.IntegerField(read_only=True)
     has_promo = serializers.BooleanField(read_only=True)
     image = serializers.SerializerMethodField()
+    restaurant_id = serializers.IntegerField(source="restaurant.id", read_only=True)
+    restaurant_name = serializers.CharField(source="restaurant.name", read_only=True)
+    restaurant_slug = serializers.CharField(source="restaurant.slug", read_only=True)
+    restaurant_tagline = serializers.CharField(source="restaurant.tagline", read_only=True)
 
     class Meta:
         model = Dish
         fields = ["id", "name", "description", "price", "current_price", "has_promo",
-                  "prep_time", "image", "is_available", "is_popular", "section"]
+                  "prep_time", "image", "is_available", "is_popular", "section",
+                  "restaurant_id", "restaurant_name", "restaurant_slug",
+                  "restaurant_tagline"]
 
     def get_image(self, obj):
         return obj.image.url if obj.image else ""
@@ -94,7 +100,7 @@ class PromotionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Promotion
         fields = ["id", "title", "description", "discount_type", "discount_value",
-                  "label", "banner_color", "starts_at", "ends_at", "is_live"]
+                  "label", "starts_at", "ends_at", "is_live"]
 
 
 # ----------------------------------------------------------------------------

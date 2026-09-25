@@ -11,6 +11,76 @@
   window.OE = window.OE || {};
   window.OE.csrftoken = csrftoken;
 
+  // ---- Partage plats & restaurants ----
+  const shareSheet = document.getElementById("share-sheet");
+  let sharePayload = { title: "ONE EAT", url: window.location.href };
+
+  function closeShareSheet() {
+    if (!shareSheet) return;
+    shareSheet.classList.add("hidden");
+    document.body.style.overflow = "";
+  }
+
+  function openShareSheet(trigger) {
+    if (!shareSheet) return;
+    sharePayload = {
+      title: trigger.dataset.shareTitle || document.title,
+      url: new URL(trigger.dataset.shareUrl || window.location.href, window.location.origin).href,
+    };
+    shareSheet.querySelector("[data-share-url-label]").textContent = sharePayload.url;
+    shareSheet.querySelector("[data-copy-label]").textContent = "Copier le lien";
+    shareSheet.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    shareSheet.querySelector("[data-share-close]").focus();
+  }
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(sharePayload.url);
+    } catch (error) {
+      const input = document.createElement("textarea");
+      input.value = sharePayload.url;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    }
+    const label = shareSheet.querySelector("[data-copy-label]");
+    label.textContent = "Lien copié !";
+    setTimeout(() => { label.textContent = "Copier le lien"; }, 1800);
+  }
+
+  document.addEventListener("click", function (e) {
+    const trigger = e.target.closest("[data-share-title]");
+    if (trigger) {
+      e.preventDefault();
+      openShareSheet(trigger);
+      return;
+    }
+    if (e.target.closest("[data-share-close]")) {
+      closeShareSheet();
+      return;
+    }
+    const channel = e.target.closest("[data-share-channel]")?.dataset.shareChannel;
+    if (!channel) return;
+    const url = encodeURIComponent(sharePayload.url);
+    const text = encodeURIComponent(sharePayload.title);
+    if (channel === "copy") return void copyShareLink();
+    if (channel === "whatsapp") window.open(`https://wa.me/?text=${text}%20${url}`, "_blank", "noopener,noreferrer");
+    if (channel === "facebook") window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank", "noopener,noreferrer");
+    if (channel === "x") window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank", "noopener,noreferrer");
+    if (channel === "native") {
+      if (navigator.share) navigator.share(sharePayload).catch(() => {});
+      else copyShareLink();
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && shareSheet && !shareSheet.classList.contains("hidden")) closeShareSheet();
+  });
+
   // ---- Panier ----
   function updateCartBadge(count) {
     const badge = document.getElementById("nav-cart-badge");

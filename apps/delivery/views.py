@@ -1,13 +1,16 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.core.geo import haversine_km, within_radius
+from apps.core.routing import road_route, tracking_payload
 from apps.orders.models import Order
 from .models import DriverProfile
 
@@ -33,10 +36,14 @@ def dashboard(request):
     for o in candidates:
         lat = o.restaurant.lat
         lng = o.restaurant.lng
-        if prof.current_lat and prof.current_lng and lat and lng:
+        if prof.current_lat is not None and prof.current_lng is not None \
+                and lat is not None and lng is not None:
             d = haversine_km(prof.current_lat, prof.current_lng, lat, lng)
             if d is not None and d <= prof.service_radius_km:
                 o.distance_km = round(d, 1)
+                route = road_route(prof.current_lat, prof.current_lng, lat, lng)
+                o.route_distance_km = route["distance_km"]
+                o.route_duration_min = route["duration_min"]
                 available.append(o)
         else:
             o.distance_km = None
@@ -49,6 +56,14 @@ def dashboard(request):
         driver=request.user,
         status__in=[Order.Status.PICKED_UP, Order.Status.ON_THE_WAY]
     ).select_related("restaurant", "customer")
+    my_orders = (Order.objects.filter(driver=request.user)
+                 .select_related("restaurant", "customer")
+                 .prefetch_related("items")
+                 .order_by("-created_at"))
+    delivered_count = my_orders.filter(status=Order.Status.DELIVERED).count()
+    total_amount = my_orders.aggregate(s=Sum("total"))["s"] or 0
+    delivered_amount = my_orders.filter(status=Order.Status.DELIVERED).aggregate(
+        s=Sum("total"))["s"] or 0
 
     # Donnees carte (JSON)
     map_orders = [{
@@ -59,14 +74,21 @@ def dashboard(request):
         "address": o.delivery_address, "total": o.total,
         "distance": getattr(o, "distance_km", None),
     } for o in available if o.restaurant.lat]
+    center_lat = prof.current_lat if prof.current_lat is not None else settings.DOUALA_CENTER["lat"]
+    center_lng = prof.current_lng if prof.current_lng is not None else settings.DOUALA_CENTER["lng"]
 
     context = {
         "profile": prof,
         "available": available,
         "my_active": my_active,
-        "delivered_count": Order.objects.filter(
-            driver=request.user, status=Order.Status.DELIVERED).count(),
+        "my_orders": my_orders[:30],
+        "total_orders": my_orders.count(),
+        "delivered_count": delivered_count,
+        "total_amount": total_amount,
+        "delivered_amount": delivered_amount,
         "map_orders_json": json.dumps(map_orders),
+        "map_center_json": json.dumps([float(center_lat), float(center_lng)]),
+        "service_radius_m": int(prof.service_radius_km * 1000),
     }
     return render(request, "delivery/dashboard.html", context)
 
@@ -91,7 +113,9 @@ def update_location(request):
     prof.last_seen = timezone.now()
     prof.save(update_fields=["current_lat", "current_lng", "last_seen"])
     # Met a jour la position sur les commandes en cours (suivi client)
-    Order.objects.filter(driver=request.user, status=Order.Status.ON_THE_WAY).update(
+    Order.objects.filter(driver=request.user, status__in=[
+        Order.Status.PICKED_UP, Order.Status.ON_THE_WAY
+    ]).update(
         driver_lat=prof.current_lat, driver_lng=prof.current_lng)
     return JsonResponse({"ok": True})
 
@@ -103,7 +127,9 @@ def accept_order(request, order_id):
     order = get_object_or_404(Order, id=order_id, driver__isnull=True)
     order.driver = request.user
     order.status = Order.Status.PICKED_UP
-    order.save(update_fields=["driver", "status"])
+    order.driver_lat = prof.current_lat
+    order.driver_lng = prof.current_lng
+    order.save(update_fields=["driver", "status", "driver_lat", "driver_lng"])
     from apps.core.services import notify
     notify(order.customer, f"Livreur en route — {order.number}",
            f"{request.user.display_name} va livrer votre commande.",
@@ -138,13 +164,6 @@ def order_map(request, number):
     if order.customer_id != request.user.id and order.driver_id != request.user.id \
             and not request.user.is_staff:
         return redirect("core:home")
-    data = {
-        "restaurant": {"name": order.restaurant.name,
-                       "lat": order.restaurant.lat, "lng": order.restaurant.lng},
-        "delivery": {"lat": order.delivery_lat, "lng": order.delivery_lng,
-                     "address": order.delivery_address},
-        "driver": {"lat": order.driver_lat, "lng": order.driver_lng},
-        "status": order.status,
-    }
     return render(request, "delivery/order_map.html",
-                  {"order": order, "map_data_json": json.dumps(data)})
+                  {"order": order, "map_data_json": json.dumps(tracking_payload(order)),
+                   "is_driver_tracking": order.driver_id == request.user.id})

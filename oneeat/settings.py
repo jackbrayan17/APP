@@ -15,6 +15,11 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = ["*"]
 
+ROUTING_PROVIDER_URL = os.environ.get(
+    "ROUTING_PROVIDER_URL",
+    "http://router.project-osrm.org/route/v1/driving",
+)
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",

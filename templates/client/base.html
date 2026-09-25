@@ -8,5 +8,58 @@
   {% block content %}{% endblock %}
 </main>
 
+<div id="share-sheet" class="fixed inset-0 z-[70] hidden" role="dialog" aria-modal="true" aria-labelledby="share-sheet-title">
+  <button type="button" data-share-close class="absolute inset-0 w-full bg-black/40 backdrop-blur-[2px]" aria-label="Fermer les options de partage"></button>
+  <div class="absolute bottom-0 left-1/2 w-full max-w-[480px] -translate-x-1/2 rounded-t-[28px] bg-white px-5 pb-[calc(24px+env(safe-area-inset-bottom))] pt-4 shadow-2xl">
+    <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200"></div>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wide text-brand">Partager</p>
+        <h2 id="share-sheet-title" class="mt-0.5 text-lg font-extrabold text-gray-900">Envoyer avec</h2>
+      </div>
+      <button type="button" data-share-close class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500" aria-label="Fermer">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="mt-5 grid grid-cols-4 gap-3">
+      <button type="button" data-share-channel="whatsapp" class="flex flex-col items-center gap-2 text-xs font-semibold text-gray-700">
+        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-green-600">
+          <svg class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24"><path d="M12.04 2a9.84 9.84 0 00-8.48 14.81L2 22l5.33-1.52A9.96 9.96 0 1012.04 2zm0 17.98a8 8 0 01-4.08-1.12l-.29-.17-3.16.9.92-3.08-.19-.31a7.86 7.86 0 01-1.21-4.2 8.02 8.02 0 118.01 7.98zm4.4-6c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.37-1.94-1.19a7.26 7.26 0 01-1.34-1.67c-.14-.24-.01-.37.11-.49.1-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.59 1.63-1.15.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg>
+        </span>
+        WhatsApp
+      </button>
+      <button type="button" data-share-channel="facebook" class="flex flex-col items-center gap-2 text-xs font-semibold text-gray-700">
+        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+          <svg class="h-7 w-7" fill="currentColor" viewBox="0 0 24 24"><path d="M13.5 22v-9h3l.5-3.5h-3.5V7.25c0-1 .28-1.75 1.77-1.75H17V2.38c-.3-.04-1.35-.13-2.57-.13-2.55 0-4.3 1.55-4.3 4.42V9.5H7.25V13h2.88v9h3.37z"/></svg>
+        </span>
+        Facebook
+      </button>
+      <button type="button" data-share-channel="x" class="flex flex-col items-center gap-2 text-xs font-semibold text-gray-700">
+        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-900">
+          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24"><path d="M18.9 2H22l-6.77 7.74L23.2 22h-6.24l-4.89-6.39L6.48 22H3.36l7.26-8.3L2.97 2h6.4l4.42 5.84L18.9 2zm-1.1 17.84h1.72L8.43 4.05H6.58L17.8 19.84z"/></svg>
+        </span>
+        X
+      </button>
+      <button type="button" data-share-channel="native" class="flex flex-col items-center gap-2 text-xs font-semibold text-gray-700">
+        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand">
+          <svg class="h-7 w-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V3m0 0L8 7m4-4 4 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>
+        </span>
+        Plus
+      </button>
+    </div>
+
+    <button type="button" data-share-channel="copy" class="mt-6 flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-left">
+      <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-gray-700 shadow-sm">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0120.25 6v7.5A2.25 2.25 0 0118 15.75h-1.5m-8.25-8.25H6A2.25 2.25 0 003.75 9.75v7.5A2.25 2.25 0 006 19.5h7.5a2.25 2.25 0 002.25-2.25V15"/></svg>
+      </span>
+      <span class="min-w-0 flex-1">
+        <span data-copy-label class="block text-sm font-bold text-gray-900">Copier le lien</span>
+        <span data-share-url-label class="block truncate text-xs text-gray-500"></span>
+      </span>
+    </button>
+  </div>
+</div>
+
 {% include "client/_bottom_nav.html" %}
 {% endblock %}

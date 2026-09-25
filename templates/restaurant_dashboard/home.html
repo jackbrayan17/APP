@@ -5,9 +5,9 @@
   <div class="rounded-2xl bg-brand text-white p-4"><p class="text-3xl font-extrabold">{{ stats.orders_today }}</p><p class="text-sm opacity-90">Commandes aujourd'hui</p></div>
   <div class="rounded-2xl bg-gray-900 text-white p-4"><p class="text-3xl font-extrabold">{{ stats.active }}</p><p class="text-sm opacity-80">En cours</p></div>
   <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.revenue }}</p><p class="text-xs text-gray-500">Revenus livrés (FCFA)</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">⭐ {{ stats.rating }}</p><p class="text-xs text-gray-500">Note moyenne</p></div>
+  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.rating }}/5</p><p class="text-xs text-gray-500">Note moyenne</p></div>
   <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.dishes }}</p><p class="text-xs text-gray-500">Plats au menu</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.drivers }}</p><p class="text-xs text-gray-500">Livreurs</p></div>
+  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.drivers }}</p><p class="text-xs text-gray-500">Livreurs affectés</p></div>
 </div>
 
 <div class="mt-5 flex items-center justify-between">
@@ -28,7 +28,7 @@
 
 <div class="mt-6 grid grid-cols-2 gap-3">
   <a href="{% url 'restaurants:menu' %}" class="p-4 rounded-2xl bg-brand-50 text-brand font-bold text-center text-sm">+ Ajouter un plat</a>
-  <a href="{% url 'restaurants:promos' %}" class="p-4 rounded-2xl bg-gray-100 text-gray-700 font-bold text-center text-sm">🎯 Lancer une promo</a>
+  <a href="{% url 'restaurants:promos' %}" class="p-4 rounded-2xl bg-gray-100 text-gray-700 font-bold text-center text-sm">Lancer une promo</a>
 </div>
-<a href="{% url 'restaurants:share' resto.share_token %}" class="mt-3 block text-center p-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm">🔗 Lien de partage de ma page</a>
+<a href="{% url 'restaurants:share' resto.share_token %}" class="mt-3 block text-center p-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm">Lien de partage de ma page</a>
 {% endblock %}

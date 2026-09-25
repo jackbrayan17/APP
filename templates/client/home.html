@@ -29,32 +29,75 @@
   </div>
 
   <!-- Recherche -->
-  <form action="{% url 'core:explore' %}" method="get" class="mt-4 relative">
+  <form action="{% url 'core:home' %}" method="get" class="mt-4 relative" data-live-search-form>
     <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-    <input name="q" type="search" placeholder="Pizza, poulet braisé, ndolé..."
+    <input name="q" value="{{ q }}" type="search" autocomplete="off" placeholder="Pizza, poulet braisé, ndolé..."
+           data-live-search-input
            class="w-full h-14 pl-12 pr-12 rounded-2xl bg-gray-100 text-[15px] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30">
-    <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg>
+    <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-white" aria-label="Rechercher">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-5-5 5 5-5 5"/></svg>
     </button>
   </form>
 </div>
 
 <!-- Categories -->
-<div class="mt-5 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+<div id="home-categories" class="mt-5 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
   {% for cat in categories %}
-  <a href="?cat={{ cat.slug }}"
-     class="flex-shrink-0 w-[88px] h-[92px] rounded-2xl flex flex-col items-center justify-center gap-1.5 transition
-     {% if active_cat == cat.slug %}bg-brand text-white shadow-lg shadow-brand/30{% else %}bg-gray-50 text-gray-700{% endif %}">
-    <span class="text-2xl">{{ cat.emoji }}</span>
+  <a href="?cat={{ cat.slug }}" data-category-filter
+     class="flex-shrink-0 w-[82px] h-[88px] rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition
+     {% if active_cat == cat.slug %}bg-brand-50 border-brand/20 text-brand shadow-sm{% else %}bg-gray-50 border-transparent text-gray-600{% endif %}">
+    <span class="w-16 h-14 flex items-center justify-center" aria-hidden="true">
+      <img src="{% static 'icons/categories/' %}{{ cat.slug }}.png"
+           class="w-full h-full object-contain" alt="" loading="eager">
+    </span>
     <span class="text-[12px] font-semibold">{{ cat.name }}</span>
   </a>
   {% endfor %}
 </div>
 
+<div id="home-discovery-content" aria-live="polite" aria-busy="false">
+{% if q or filter_active %}
+<!-- Résultats de recherche : remplace les sélections éditoriales -->
+<section class="mt-6 px-4">
+  <div class="flex items-start justify-between gap-3">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-wide text-brand">{% if q %}Résultats{% else %}Catégorie{% endif %}</p>
+      <h2 class="text-lg font-extrabold text-gray-900">{% if q %}Pour « {{ q }} »{% else %}{{ active_category.name }}{% endif %}</h2>
+    </div>
+    <a href="{% url 'core:home' %}" class="px-3 py-1.5 rounded-full bg-gray-100 text-xs font-bold text-gray-600">Réinitialiser</a>
+  </div>
+
+  {% if search_dishes %}
+  <div class="mt-4 rounded-2xl border border-gray-100 bg-white px-3">
+    <p class="pt-3 text-sm font-extrabold text-gray-900">Plats</p>
+    {% for dish in search_dishes %}{% include "client/_dish_row.html" with dish=dish %}{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if search_restaurants %}
+  <div class="mt-5 space-y-3">
+    <p class="text-sm font-extrabold text-gray-900">Restaurants</p>
+    {% for r in search_restaurants %}{% include "client/_restaurant_card.html" with r=r %}{% endfor %}
+  </div>
+  {% endif %}
+
+  {% if not search_dishes and not search_restaurants %}
+  <div class="mt-4 rounded-2xl bg-gray-50 px-5 py-10 text-center">
+    <div class="text-3xl">🔎</div>
+    <p class="mt-2 font-bold text-gray-800">Aucun résultat</p>
+    <p class="mt-1 text-sm text-gray-500">Essayez un autre plat ou restaurant.</p>
+  </div>
+  {% endif %}
+</section>
+{% else %}
+
 <!-- A la une -->
 {% if featured %}
 <div class="mt-6 px-4 flex items-center justify-between">
-  <h2 class="text-lg font-extrabold text-gray-900">À la une 🔥</h2>
+  <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l2.105 2.03 2.895-.414a.75.75 0 01.822.822l-.414 2.895 2.03 2.105a.75.75 0 010 1.04l-2.03 2.105.414 2.895a.75.75 0 01-.822.822l-2.895-.414-2.105 2.03a.75.75 0 01-1.04 0l-2.105-2.03-2.895.414a.75.75 0 01-.822-.822l.414-2.895-2.03-2.105a.75.75 0 010-1.04l2.03-2.105-.414-2.895a.75.75 0 01.822-.822l2.895.414 2.105-2.03z"/></svg>
+    À la une
+  </h2>
 </div>
 <div class="mt-3 flex gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
   {% for r in featured %}
@@ -67,9 +110,9 @@
       <div class="absolute bottom-3 left-3 right-3 text-white">
         <h3 class="text-xl font-extrabold drop-shadow">{{ r.name }}</h3>
         <div class="flex items-center gap-2 text-sm mt-1">
-          <span class="flex items-center gap-1">⭐ {{ r.rating_label }}</span>
+          <span class="flex items-center gap-1"><svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 01.9.56l1.9 3.86 4.26.62a1 1 0 01.55 1.7l-3.08 3 .73 4.23a1 1 0 01-1.45 1.05L10 15.02l-3.81 2a1 1 0 01-1.45-1.05l.73-4.23-3.08-3a1 1 0 01.55-1.7l4.26-.62L9.1 2.56A1 1 0 0110 2z"/></svg> {{ r.rating_label }}</span>
           <span>·</span>
-          <span class="flex items-center gap-1">🕐 {{ r.delivery_time_label }}</span>
+          <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg> {{ r.delivery_time_label }}</span>
           {% if r.neighborhood %}<span>·</span><span>{{ r.neighborhood }}</span>{% endif %}
         </div>
       </div>
@@ -82,7 +125,10 @@
 <!-- Restaurants populaires -->
 {% if popular %}
 <div class="mt-5 px-4 flex items-center justify-between">
-  <h2 class="text-lg font-extrabold text-gray-900">Restaurants populaires 🏆</h2>
+  <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0A3.75 3.75 0 0012.75 15h-1.5a3.75 3.75 0 00-3.75 3.75m9 0V21h-9v-2.25M8.25 4.5h7.5v4.125a3.75 3.75 0 11-7.5 0V4.5zM15.75 6H18a2.25 2.25 0 01-2.25 2.25M8.25 6H6a2.25 2.25 0 002.25 2.25"/></svg>
+    Restaurants populaires
+  </h2>
   <a href="{% url 'core:explore' %}" class="text-brand text-sm font-bold flex items-center gap-1">Voir tout
     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
   </a>
@@ -95,15 +141,24 @@
       {% if r.neighborhood %}<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[11px] font-semibold">{{ r.neighborhood }}</span>{% endif %}
     </div>
     <h3 class="mt-2 font-bold text-gray-900 text-sm leading-tight">{{ r.name }}</h3>
-    <p class="text-xs text-gray-500 mt-0.5">⭐ {{ r.rating_label }} · {{ r.delivery_time_label }}</p>
+    <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+      <svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 01.9.56l1.9 3.86 4.26.62a1 1 0 01.55 1.7l-3.08 3 .73 4.23a1 1 0 01-1.45 1.05L10 15.02l-3.81 2a1 1 0 01-1.45-1.05l.73-4.23-3.08-3a1 1 0 01.55-1.7l4.26-.62L9.1 2.56A1 1 0 0110 2z"/></svg>
+      {{ r.rating_label }} · {{ r.delivery_time_label }}
+    </p>
   </a>
   {% endfor %}
 </div>
 {% endif %}
 
+{% endif %}
+
 <!-- Tous les restaurants -->
+{% if not q and not filter_active %}
 <div class="mt-5 px-4">
-  <h2 class="text-lg font-extrabold text-gray-900">Tous les restaurants 🍽️</h2>
+  <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.25m11.25 0H21m-18.75 0v-9.75A2.25 2.25 0 014.5 9h15a2.25 2.25 0 012.25 2.25V21M6.75 9V4.5A2.25 2.25 0 019 2.25h6a2.25 2.25 0 012.25 2.25V9"/></svg>
+    Tous les restaurants
+  </h2>
 </div>
 <div class="mt-3 px-4 space-y-3">
   {% for r in restaurants %}
@@ -112,4 +167,118 @@
   <p class="text-center text-gray-400 py-10">Aucun restaurant dans cette catégorie.</p>
   {% endfor %}
 </div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.querySelector('[data-live-search-form]');
+  var input = document.querySelector('[data-live-search-input]');
+  var content = document.getElementById('home-discovery-content');
+  if (!form || !input || !content) return;
+
+  var debounceTimer = null;
+  var controller = null;
+  var requestNumber = 0;
+
+  function skeletonMarkup() {
+    return '<div class="px-4 pt-6 pb-8 animate-pulse" data-search-skeleton>' +
+      '<div class="flex items-center justify-between"><div class="space-y-2">' +
+      '<div class="h-3 w-20 rounded-full bg-orange-100"></div>' +
+      '<div class="h-5 w-44 rounded-lg bg-gray-200"></div></div>' +
+      '<div class="h-8 w-20 rounded-full bg-gray-100"></div></div>' +
+      '<div class="mt-5 rounded-2xl border border-gray-100 bg-white p-3 space-y-4">' +
+      '<div class="h-4 w-16 rounded bg-gray-200"></div>' +
+      [1,2,3].map(function () { return '<div class="flex gap-3">' +
+        '<div class="h-[88px] w-[88px] shrink-0 rounded-xl bg-gray-200"></div>' +
+        '<div class="flex-1 py-1 space-y-3"><div class="h-4 w-3/5 rounded bg-gray-200"></div>' +
+        '<div class="h-3 w-full rounded bg-gray-100"></div><div class="h-3 w-4/5 rounded bg-gray-100"></div>' +
+        '<div class="h-5 w-24 rounded bg-orange-100"></div></div></div>'; }).join('') +
+      '</div><div class="mt-5 space-y-3"><div class="h-4 w-24 rounded bg-gray-200"></div>' +
+      '<div class="h-32 rounded-2xl bg-gray-200"></div><div class="h-32 rounded-2xl bg-gray-100"></div>' +
+      '</div></div>';
+  }
+
+  function showSkeleton() {
+    content.setAttribute('aria-busy', 'true');
+    content.innerHTML = skeletonMarkup();
+  }
+
+  async function loadDiscovery(url, replaceCategories) {
+    var requestId = ++requestNumber;
+    if (controller) controller.abort();
+    controller = new AbortController();
+    showSkeleton();
+
+    try {
+      var response = await fetch(url, {
+        signal: controller.signal,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if (!response.ok) throw new Error('Recherche indisponible');
+      var html = await response.text();
+      var page = new DOMParser().parseFromString(html, 'text/html');
+      var nextContent = page.getElementById('home-discovery-content');
+      if (!nextContent || requestId !== requestNumber) return;
+
+      content.innerHTML = nextContent.innerHTML;
+      content.setAttribute('aria-busy', 'false');
+
+      if (replaceCategories) {
+        var currentCategories = document.getElementById('home-categories');
+        var nextCategories = page.getElementById('home-categories');
+        if (currentCategories && nextCategories) currentCategories.innerHTML = nextCategories.innerHTML;
+      }
+
+      var target = new URL(url, window.location.origin);
+      history.replaceState({}, '', target.pathname + target.search);
+      input.value = target.searchParams.get('q') || '';
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      window.location.href = url;
+    }
+  }
+
+  function queueSearch() {
+    clearTimeout(debounceTimer);
+    requestNumber += 1;
+    if (controller) controller.abort();
+    showSkeleton();
+    debounceTimer = setTimeout(function () {
+      var target = new URL(form.action, window.location.origin);
+      var current = new URL(window.location.href);
+      var category = current.searchParams.get('cat');
+      var query = input.value.trim();
+      if (category && category !== 'tous') target.searchParams.set('cat', category);
+      if (query) target.searchParams.set('q', query);
+      loadDiscovery(target.href, false);
+    }, 280);
+  }
+
+  input.addEventListener('input', queueSearch);
+  form.addEventListener('submit', function (event) {
+    event.preventDefault();
+    clearTimeout(debounceTimer);
+    var target = new URL(form.action, window.location.origin);
+    var query = input.value.trim();
+    if (query) target.searchParams.set('q', query);
+    loadDiscovery(target.href, false);
+  });
+
+  document.addEventListener('click', function (event) {
+    var filter = event.target.closest('[data-category-filter]');
+    if (!filter) return;
+    event.preventDefault();
+    clearTimeout(debounceTimer);
+    input.value = '';
+    loadDiscovery(filter.href, true);
+  });
+
+  window.addEventListener('popstate', function () {
+    loadDiscovery(window.location.href, true);
+  });
+})();
+</script>
 {% endblock %}

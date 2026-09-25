@@ -26,7 +26,6 @@ class Promotion(TimeStampedModel):
 
     dishes = models.ManyToManyField(Dish, related_name="promotions", blank=True)
 
-    banner_color = models.CharField(max_length=9, default="#E53935")
     starts_at = models.DateTimeField(default=timezone.now)
     ends_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
