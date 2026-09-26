@@ -1,6 +1,6 @@
 /* ONE EAT — Service Worker (PWA, compatible Android & iOS 16.4+) */
 /* v2 : nouvelles icônes de marque -> bump de version pour purger l'ancien cache. */
-const CACHE = "oneeat-v2";
+const CACHE = "oneeat-v3";
 const OFFLINE_URL = "/offline/";
 const PRECACHE = [
   "/", "/offline/", "/static/js/app.js", "/manifest.webmanifest",

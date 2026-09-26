@@ -77,7 +77,7 @@ jobs:
               response = requests.post(
                   f"{base}/execute/Fileman/upload_files",
                   headers=auth,
-                  data={"dir": f"/home/{user}"},
+                  data={"dir": f"/home/{user}", "overwrite": "1"},
                   files={"file-1": ("oneeat-release.zip", fh, "application/zip")},
                   timeout=180,
               )
@@ -211,7 +211,7 @@ jobs:
               response = requests.post(
                   f"{base}/execute/Fileman/upload_files",
                   headers=auth,
-                  data={"dir": f"/home/{user}"},
+                  data={"dir": f"/home/{user}", "overwrite": "1"},
                   files={"file-1": ("oneeat-release.zip", fh, "application/zip")},
                   timeout=180,
               )
