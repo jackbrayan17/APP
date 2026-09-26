@@ -83,12 +83,29 @@
 
   // ---- Panier ----
   function updateCartBadge(count) {
-    const badge = document.getElementById("nav-cart-badge");
-    if (!badge) return;
-    badge.textContent = count;
-    badge.classList.toggle("hidden", !count);
-    if (count) { badge.classList.add("pop"); setTimeout(() => badge.classList.remove("pop"), 250); }
+    const fab = document.getElementById("cart-fab");
+    const fabCount = document.getElementById("cart-fab-count");
+    if (fab && fabCount) {
+      fabCount.textContent = count;
+      const onCart = location.pathname.startsWith("/panier") || location.pathname.startsWith("/plat/");
+      fab.classList.toggle("hidden", !count || onCart);
+      if (count) { fab.classList.add("pop"); setTimeout(() => fab.classList.remove("pop"), 250); }
+    }
   }
+
+  // ---- Toasts ----
+  function toast(message, tone) {
+    const el = document.createElement("div");
+    const bg = tone === "warn" ? "bg-amber-500" : tone === "error" ? "bg-red-600" : "bg-gray-900";
+    el.className = "oe-toast fixed left-1/2 top-4 -translate-x-1/2 z-[80] w-[calc(100%-32px)] max-w-[440px] " +
+      "rounded-2xl px-4 py-3 text-sm font-semibold text-white shadow-xl " + bg;
+    el.setAttribute("role", "status");
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.transition = "opacity .3s"; el.style.opacity = "0"; }, 2600);
+    setTimeout(() => el.remove(), 3000);
+  }
+  window.OE.toast = toast;
   window.OE.updateCartBadge = updateCartBadge;
 
   document.addEventListener("click", function (e) {
@@ -100,12 +117,15 @@
       method: "POST",
       headers: { "X-CSRFToken": csrftoken },
     })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
       .then((d) => {
         if (d.ok) {
           updateCartBadge(d.count);
           btn.classList.add("pop");
           setTimeout(() => btn.classList.remove("pop"), 250);
+          if (d.open === false) toast(`${d.name} ajouté · Attention : ${d.status}`, "warn");
+          else toast(`✓ ${d.name} ajouté au panier`);
+          if (navigator.vibrate) navigator.vibrate(12);
         }
       });
   });

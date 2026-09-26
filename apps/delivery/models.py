@@ -36,3 +36,27 @@ class DriverProfile(TimeStampedModel):
 
     def __str__(self):
         return f"Livreur {self.user.display_name}"
+
+    @property
+    def active_mission(self):
+        from apps.orders.models import Order
+        return (Order.objects.filter(driver=self.user)
+                .exclude(status__in=[Order.Status.DELIVERED, Order.Status.CANCELLED])
+                .select_related("restaurant", "customer").first())
+
+    @property
+    def status_key(self):
+        """offline | available | on_mission (statuts du cahier des charges)."""
+        if self.active_mission:
+            return "on_mission"
+        return "available" if self.is_available else "offline"
+
+    def earnings_since(self, since=None):
+        """Gains livreur = frais de livraison des courses livrees."""
+        from django.db.models import Count, Sum
+        from apps.orders.models import Order
+        qs = Order.objects.filter(driver=self.user, status=Order.Status.DELIVERED)
+        if since:
+            qs = qs.filter(delivered_at__gte=since)
+        agg = qs.aggregate(total=Sum("delivery_fee"), n=Count("id"))
+        return {"amount": agg["total"] or 0, "count": agg["n"] or 0}

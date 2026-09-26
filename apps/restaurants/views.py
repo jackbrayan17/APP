@@ -1,15 +1,21 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from datetime import timedelta
+
+from django.conf import settings
+from django.db.models import Count, Sum
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import User
-from apps.orders.models import Order
+from apps.orders.models import Order, OrderItem
+from apps.orders.workflow import (RESTAURANT_ACTIONS, TransitionError, restaurant_action,
+                                  restaurant_next_actions)
 from apps.promotions.models import Promotion
-from .models import Restaurant, Category, MenuSection, Dish, RestaurantPhoto, Favorite
+from .models import WEEKDAYS, Restaurant, Category, MenuSection, Dish, RestaurantPhoto, Favorite
 
 
 def _cart_count(request):
@@ -107,18 +113,48 @@ def dashboard(request):
         return redirect("restaurants:onboarding")
 
     orders = Order.objects.filter(restaurant=resto)
+    delivered = orders.filter(status=Order.Status.DELIVERED)
+    commission = settings.PLATFORM_COMMISSION_PERCENT
+    today = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    periods = {"Aujourd'hui": today, "7 jours": today - timedelta(days=6),
+               "30 jours": today - timedelta(days=29)}
+
+    def revenue(qs):
+        agg = qs.aggregate(items=Sum("items_total"), disc=Sum("discount"), n=Count("id"))
+        gross = (agg["items"] or 0) - (agg["disc"] or 0)
+        return {"gross": gross, "net": round(gross * (100 - commission) / 100),
+                "count": agg["n"] or 0, "basket": round(gross / agg["n"]) if agg["n"] else 0}
+
+    revenue_periods = [{"label": k, **revenue(delivered.filter(delivered_at__gte=v))}
+                       for k, v in periods.items()]
+    daily = {row["d"]: row["s"] for row in
+             delivered.filter(delivered_at__gte=today - timedelta(days=6))
+             .annotate(d=TruncDate("delivered_at")).values("d").annotate(s=Sum("items_total"))}
+    chart = []
+    for i in range(6, -1, -1):
+        day = (today - timedelta(days=i)).date()
+        chart.append({"label": WEEKDAYS[day.weekday()][:3], "value": daily.get(day) or 0})
+    peak = max([c["value"] for c in chart] + [1])
+    for c in chart:
+        c["pct"] = max(4, round(c["value"] * 100 / peak)) if c["value"] else 0
+    top_dishes = (OrderItem.objects.filter(order__restaurant=resto,
+                                           order__status=Order.Status.DELIVERED)
+                  .values("name").annotate(qty=Sum("quantity")).order_by("-qty")[:5])
     context = {
         "resto": resto,
         "stats": {
-            "orders_today": orders.filter(created_at__date=timezone.now().date()).count(),
-            "active": orders.filter(status__in=[
-                Order.Status.PENDING, Order.Status.PREPARING, Order.Status.READY]).count(),
+            "orders_today": orders.filter(created_at__gte=today).count(),
+            "to_handle": orders.filter(status=Order.Status.PENDING)
+                               .exclude(payment_status=Order.PaymentStatus.PENDING).count(),
+            "in_kitchen": orders.filter(status__in=[Order.Status.CONFIRMED,
+                                                    Order.Status.PREPARING]).count(),
+            "ready": orders.filter(status=Order.Status.READY).count(),
             "dishes": resto.dishes.count(),
-            "drivers": resto.drivers.count(),
-            "rating": resto.rating,
-            "revenue": sum(o.total for o in orders.filter(status=Order.Status.DELIVERED)),
+            "unavailable": resto.dishes.filter(is_available=False).count(),
         },
-        "recent_orders": orders.select_related("customer")[:10],
+        "revenue_periods": revenue_periods, "commission": commission,
+        "chart": chart, "top_dishes": top_dishes,
+        "recent_reviews": resto.reviews.select_related("customer")[:3],
     }
     return render(request, "restaurant_dashboard/home.html", context)
 
@@ -148,11 +184,17 @@ def menu_manage(request):
     resto = _owner_resto(request)
     if not resto:
         return redirect("restaurants:onboarding")
+    dishes = resto.dishes.all()
+    fields = ("name", "description", "price", "prep_time", "calories", "protein_grams",
+              "carbs_grams", "fat_grams", "fiber_grams", "dietary_tags", "dietary_note",
+              "section_id", "category_id", "is_available", "is_popular", "is_diet")
     context = {
         "resto": resto,
         "sections": resto.sections.prefetch_related("dishes").all(),
         "categories": Category.objects.all(),
-        "dishes": resto.dishes.all(),
+        "dishes": dishes,
+        "dishes_data": {d.id: {f: getattr(d, f) for f in fields} for d in dishes},
+        "unsectioned": dishes.filter(section__isnull=True),
     }
     return render(request, "restaurant_dashboard/menu.html", context)
 
@@ -167,11 +209,18 @@ def dish_save(request):
     dish = Dish.objects.filter(id=dish_id, restaurant=resto).first() if dish_id else Dish(restaurant=resto)
     dish.name = request.POST.get("name", dish.name)
     dish.description = request.POST.get("description", "")
-    dish.price = int(request.POST.get("price") or 0)
+    try:
+        dish.price = max(0, int(request.POST.get("price") or 0))
+    except ValueError:
+        messages.error(request, "Prix invalide.")
+        return redirect("restaurants:menu")
     dish.prep_time = int(request.POST.get("prep_time") or 20)
     dish.is_diet = request.POST.get("is_diet") == "on"
-    dish.calories = int(request.POST["calories"]) if request.POST.get("calories") else None
-    dish.protein_grams = int(request.POST["protein_grams"]) if request.POST.get("protein_grams") else None
+    raw_kcal = request.POST.get("calories", "")
+    dish.calories = int(raw_kcal) if raw_kcal.isdigit() else None
+    for field in ("protein_grams", "carbs_grams", "fat_grams", "fiber_grams"):
+        raw = request.POST.get(field, "")
+        setattr(dish, field, int(raw) if raw.isdigit() else None)
     dish.dietary_tags = request.POST.get("dietary_tags", "")
     dish.dietary_note = request.POST.get("dietary_note", "")
     section_id = request.POST.get("section")
@@ -226,6 +275,15 @@ def customize(request):
         resto.delivery_fee = int(request.POST.get("delivery_fee") or resto.delivery_fee)
         resto.delivery_time_min = int(request.POST.get("delivery_time_min") or resto.delivery_time_min)
         resto.delivery_time_max = int(request.POST.get("delivery_time_max") or resto.delivery_time_max)
+        resto.min_order = int(request.POST.get("min_order") or 0)
+        resto.phone = request.POST.get("phone", resto.phone)
+        if request.POST.get("hours_form") == "1":
+            hours = {}
+            for d in range(7):
+                start, end = request.POST.get(f"open_{d}"), request.POST.get(f"close_{d}")
+                on = request.POST.get(f"day_{d}") == "on"
+                hours[str(d)] = [start, end] if on and start and end else None
+            resto.opening_hours = hours
         if request.FILES.get("logo"):
             resto.logo = request.FILES["logo"]
         if request.FILES.get("cover_image"):
@@ -244,17 +302,78 @@ def customize(request):
 
 
 @login_required
+@require_POST
+def toggle_open(request):
+    """Fermeture exceptionnelle en un tap (et reouverture)."""
+    resto = _owner_resto(request)
+    if not resto:
+        return redirect("restaurants:onboarding")
+    resto.is_temporarily_closed = not resto.is_temporarily_closed
+    resto.closure_note = request.POST.get("note", "")[:120] if resto.is_temporarily_closed else ""
+    resto.save(update_fields=["is_temporarily_closed", "closure_note"])
+    messages.success(request, "Restaurant fermé temporairement." if resto.is_temporarily_closed
+                     else "Restaurant rouvert : les commandes reprennent.")
+    return redirect("restaurants:dashboard")
+
+
+@login_required
+@require_POST
+def dish_toggle(request, dish_id):
+    """Activation / desactivation rapide d'un plat (rupture de stock)."""
+    dish = get_object_or_404(Dish, id=dish_id, restaurant__owner=request.user)
+    dish.is_available = not dish.is_available
+    dish.save(update_fields=["is_available"])
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"available": dish.is_available})
+    return redirect("restaurants:menu")
+
+
+ORDER_TABS = [
+    ("new", "Nouvelles", [Order.Status.PENDING]),
+    ("kitchen", "En cuisine", [Order.Status.CONFIRMED, Order.Status.PREPARING]),
+    ("ready", "Prêtes", [Order.Status.READY]),
+    ("delivery", "En livraison", [Order.Status.PICKED_UP, Order.Status.ON_THE_WAY]),
+    ("done", "Terminées", [Order.Status.DELIVERED, Order.Status.CANCELLED]),
+]
+
+
+def _visible_orders(resto):
+    """Commandes visibles par le resto : celles en attente de paiement MoMo sont masquees."""
+    return (Order.objects.filter(restaurant=resto)
+            .exclude(status=Order.Status.PENDING, payment_status=Order.PaymentStatus.PENDING))
+
+
+@login_required
 def orders_manage(request):
     resto = _owner_resto(request)
     if not resto:
         return redirect("restaurants:onboarding")
-    status = request.GET.get("status", "")
-    orders = Order.objects.filter(restaurant=resto).select_related("customer", "driver")
-    if status:
-        orders = orders.filter(status=status)
+    tab = request.GET.get("tab", "new")
+    base = _visible_orders(resto)
+    tabs = [{"key": k, "label": label, "count": base.filter(status__in=st).count()}
+            for k, label, st in ORDER_TABS]
+    statuses = {k: st for k, _, st in ORDER_TABS}.get(tab, ORDER_TABS[0][2])
+    orders = (base.filter(status__in=statuses).select_related("customer", "driver")
+              .prefetch_related("items"))
+    orders = list(orders.order_by("-created_at")[:60] if tab == "done" else orders.order_by("created_at"))
+    for o in orders:
+        o.actions = [(a, RESTAURANT_ACTIONS[a][2]) for a in restaurant_next_actions(o)]
     return render(request, "restaurant_dashboard/orders.html",
-                  {"resto": resto, "orders": orders, "status": status,
-                   "statuses": Order.Status.choices})
+                  {"resto": resto, "orders": orders, "tab": tab, "tabs": tabs,
+                   "latest_id": base.order_by("-id").values_list("id", flat=True).first() or 0})
+
+
+@login_required
+def orders_feed(request):
+    """Poll leger : nouvelles commandes a traiter (alerte sonore cote navigateur)."""
+    resto = _owner_resto(request)
+    if not resto:
+        return JsonResponse({"pending": 0, "latest_id": 0})
+    qs = _visible_orders(resto)
+    return JsonResponse({
+        "pending": qs.filter(status=Order.Status.PENDING).count(),
+        "latest_id": qs.order_by("-id").values_list("id", flat=True).first() or 0,
+    })
 
 
 @login_required
@@ -262,21 +381,17 @@ def orders_manage(request):
 def order_set_status(request, order_id):
     resto = _owner_resto(request)
     order = get_object_or_404(Order, id=order_id, restaurant=resto)
-    new_status = request.POST.get("status")
-    if new_status in dict(Order.Status.choices):
-        order.status = new_status
-        if new_status == Order.Status.CONFIRMED and not order.confirmed_at:
-            order.confirmed_at = timezone.now()
-        order.save(update_fields=["status", "confirmed_at"])
-        from apps.core.services import notify
-        notify(order.customer, f"Commande {order.number}",
-               f"Statut : {order.get_status_display()}", url=f"/commande/{order.number}/")
-    # assignation livreur
-    driver_id = request.POST.get("driver")
-    if driver_id:
-        order.driver = User.objects.filter(id=driver_id).first()
-        order.save(update_fields=["driver"])
-    return redirect("restaurants:orders")
+    action = request.POST.get("action", "")
+    try:
+        restaurant_action(order, action, reason=request.POST.get("reason", ""))
+        labels = {"accept": "Commande acceptée", "start": "Préparation lancée",
+                  "ready": "Commande prête : les livreurs sont prévenus",
+                  "refuse": "Commande refusée", "cancel": "Commande annulée"}
+        messages.success(request, f"{labels.get(action, 'OK')} · {order.number}")
+    except TransitionError as exc:
+        messages.error(request, str(exc))
+    nxt = request.POST.get("next", "")
+    return redirect(nxt if nxt.startswith("/resto/") else "restaurants:orders")
 
 
 @login_required

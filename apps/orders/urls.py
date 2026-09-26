@@ -11,5 +11,9 @@ urlpatterns = [
     path("commandes/", views.order_list, name="list"),
     path("commande/<str:number>/", views.order_detail, name="detail"),
     path("commande/<str:number>/noter/", views.review_order, name="review"),
+    path("commande/<str:number>/paiement/", views.payment, name="payment"),
+    path("commande/<str:number>/etat/", views.order_status_json, name="status_json"),
+    path("commande/<str:number>/annuler/", views.order_cancel, name="cancel"),
+    path("commande/<str:number>/recommander/", views.reorder, name="reorder"),
     path("c/<str:token>/", views.order_share, name="share"),
 ]

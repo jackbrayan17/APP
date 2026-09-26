@@ -4,7 +4,7 @@
 {% block shell_class %}safe-bottom{% endblock %}
 
 {% block body %}
-<main class="min-h-[100dvh]">
+<main class="min-h-[100dvh] {% if cart_count %}pb-16{% endif %}">
   {% block content %}{% endblock %}
 </main>
 

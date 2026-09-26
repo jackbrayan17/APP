@@ -1,0 +1,108 @@
+{% extends "client/base.html" %}
+{% load static humanize %}
+{% block title %}Diététique — Mangez équilibré à Douala | ONE EAT{% endblock %}
+{% block meta_description %}Plats diététiques livrés à Douala : calories, protéines, glucides et fibres affichés pour chaque plat. Filtrez par objectif : léger, protéiné, végétarien, pauvre en glucides.{% endblock %}
+
+{% block content %}
+<header class="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 px-5 pb-7 pt-6 text-white">
+  <svg class="absolute -right-10 -top-8 h-48 w-48 text-white/10" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M17 3c-7 .5-11 4-11 9 0 1.2.3 2.3.8 3.2L4 18l1.4 1 2.5-2.6A6 6 0 0011 17c4.5 0 7-4.5 6-14z"/></svg>
+  <p class="text-xs font-bold uppercase tracking-[.18em] text-emerald-100">Espace diététique</p>
+  <h1 class="mt-1 text-[28px] font-black leading-tight">Mangez équilibré,<br>sans compter pour rien.</h1>
+  <p class="mt-2 max-w-[330px] text-sm text-emerald-50">Chaque plat affiche ses calories et macronutriments. Choisissez votre objectif, on s'occupe du reste.</p>
+  <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+    <div class="rounded-2xl bg-white/15 px-2 py-2.5 backdrop-blur"><p class="text-lg font-black tabular">{{ dishes|length }}</p><p class="text-[10px] font-semibold text-emerald-50">plats {% if goal %}filtrés{% else %}équilibrés{% endif %}</p></div>
+    <div class="rounded-2xl bg-white/15 px-2 py-2.5 backdrop-blur"><p class="text-lg font-black">2 000</p><p class="text-[10px] font-semibold text-emerald-50">kcal / jour (réf.)</p></div>
+    <div class="rounded-2xl bg-white/15 px-2 py-2.5 backdrop-blur"><p class="text-lg font-black">A → D</p><p class="text-[10px] font-semibold text-emerald-50">indice nutrition</p></div>
+  </div>
+</header>
+
+<!-- Objectifs -->
+<section class="px-4 pt-5" aria-label="Objectifs nutritionnels">
+  <h2 class="text-sm font-extrabold text-gray-900">Votre objectif</h2>
+  <div class="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1">
+    <a href="?tri={{ sort }}" class="flex-shrink-0 rounded-2xl border px-4 py-2.5 text-left {% if not goal %}border-emerald-600 bg-emerald-600 text-white{% else %}border-gray-200 bg-white text-gray-700{% endif %}">
+      <span class="block text-sm font-bold">Tous</span><span class="block text-[11px] opacity-80">Plats équilibrés</span>
+    </a>
+    {% for g in goals %}
+    <a href="?objectif={{ g.slug }}&tri={{ sort }}" class="flex-shrink-0 rounded-2xl border px-4 py-2.5 text-left {% if goal == g.slug %}border-emerald-600 bg-emerald-600 text-white{% else %}border-gray-200 bg-white text-gray-700{% endif %}">
+      <span class="block text-sm font-bold">{{ g.label }} <span class="opacity-60">· {{ g.count }}</span></span><span class="block text-[11px] opacity-80">{{ g.hint }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="mt-4 flex items-center justify-between gap-2">
+    <form method="get" class="flex items-center gap-2 text-xs">
+      {% if goal %}<input type="hidden" name="objectif" value="{{ goal }}">{% endif %}
+      <label for="tri" class="font-semibold text-gray-500">Trier</label>
+      <select id="tri" name="tri" onchange="this.form.submit()" class="rounded-xl border border-gray-200 bg-white px-3 py-2 font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30">
+        <option value="kcal" {% if sort == 'kcal' %}selected{% endif %}>Moins de calories</option>
+        <option value="proteines" {% if sort == 'proteines' %}selected{% endif %}>Plus de protéines</option>
+        <option value="fibres" {% if sort == 'fibres' %}selected{% endif %}>Plus de fibres</option>
+        <option value="prix" {% if sort == 'prix' %}selected{% endif %}>Prix croissant</option>
+      </select>
+    </form>
+    <div class="flex items-center gap-2 text-[10px] font-semibold text-gray-500">
+      <span class="flex items-center gap-1"><i class="h-2 w-2 rounded-full bg-sky-500"></i>Prot.</span>
+      <span class="flex items-center gap-1"><i class="h-2 w-2 rounded-full bg-amber-400"></i>Gluc.</span>
+      <span class="flex items-center gap-1"><i class="h-2 w-2 rounded-full bg-rose-400"></i>Lip.</span>
+    </div>
+  </div>
+</section>
+
+<!-- Plats -->
+<section class="mt-4 space-y-3 px-4" aria-label="Plats diététiques">
+  {% for dish in dishes %}
+  <article class="flex gap-3 rounded-3xl border border-gray-100 bg-white p-3 shadow-sm">
+    <a href="{% url 'restaurants:dish_detail' dish.id %}" class="relative h-[104px] w-[104px] flex-shrink-0 overflow-hidden rounded-2xl bg-gray-100">
+      {% if dish.image %}<img src="{{ dish.image.url }}" alt="{{ dish.name }}" class="h-full w-full object-cover" loading="lazy">{% endif %}
+      <span class="absolute left-1.5 top-1.5">{% include "client/_nutri_grade.html" with grade=dish.nutri_grade %}</span>
+    </a>
+    <div class="min-w-0 flex-1">
+      <a href="{% url 'restaurants:dish_detail' dish.id %}">
+        <h3 class="font-bold leading-tight text-gray-900">{{ dish.name }}</h3>
+        <p class="mt-0.5 truncate text-xs text-gray-500">{{ dish.restaurant.name }} · {{ dish.restaurant.neighborhood }}</p>
+      </a>
+      <div class="mt-2 flex items-baseline gap-3">
+        <p><span class="text-lg font-black text-gray-900 tabular">{{ dish.calories }}</span><span class="text-[11px] font-bold text-gray-500"> kcal</span></p>
+        {% if dish.protein_grams %}<p class="text-xs font-bold text-sky-600 tabular">{{ dish.protein_grams }} g prot.</p>{% endif %}
+        {% if dish.fiber_grams %}<p class="text-xs font-bold text-emerald-600 tabular">{{ dish.fiber_grams }} g fibres</p>{% endif %}
+      </div>
+      {% if dish.macros %}
+      <div class="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full">
+        <div class="bg-sky-500" style="width:{{ dish.macros.protein }}%"></div><div class="bg-amber-400" style="width:{{ dish.macros.carbs }}%"></div><div class="bg-rose-400" style="width:{{ dish.macros.fat }}%"></div>
+      </div>
+      {% endif %}
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-[15px] font-extrabold text-gray-900 tabular">{{ dish.current_price|intcomma }} <span class="text-[11px] font-semibold text-gray-500">{{ CURRENCY }}</span></span>
+        <button data-add-cart="{{ dish.id }}" class="flex h-9 items-center gap-1 rounded-full bg-emerald-600 px-3.5 text-xs font-bold text-white shadow-md shadow-emerald-600/25 active:scale-95 transition" aria-label="Ajouter {{ dish.name }} au panier">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>Ajouter
+        </button>
+      </div>
+    </div>
+  </article>
+  {% empty %}
+  <div class="rounded-3xl bg-gray-50 px-6 py-12 text-center">
+    <p class="font-bold text-gray-800">Aucun plat pour cet objectif</p>
+    <p class="mt-1 text-sm text-gray-500">Essayez un autre filtre.</p>
+    <a href="{% url 'core:dietetique' %}" class="mt-4 inline-block rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white">Voir tous les plats</a>
+  </div>
+  {% endfor %}
+</section>
+
+{% if healthy_restos %}
+<section class="mt-8 px-4">
+  <h2 class="text-lg font-extrabold text-gray-900">Restaurants healthy</h2>
+  <div class="mt-3 space-y-3">{% for r in healthy_restos %}{% include "client/_restaurant_card.html" with r=r %}{% endfor %}</div>
+</section>
+{% endif %}
+
+<section class="mx-4 mt-8 mb-6 rounded-3xl bg-gray-50 p-5">
+  <h2 class="font-extrabold text-gray-900">Bien lire les repères</h2>
+  <ul class="mt-3 space-y-2.5 text-sm text-gray-600">
+    <li class="flex gap-2"><span class="font-black text-emerald-600">A–D</span><span>Indice ONE EAT : énergie, protéines, fibres et mode de cuisson (friture, sucre). A = le plus équilibré.</span></li>
+    <li class="flex gap-2"><span class="font-black text-sky-600">%</span><span>Part des apports journaliers de référence d'un adulte (2 000 kcal).</span></li>
+    <li class="flex gap-2"><span class="font-black text-amber-500">!</span><span>Demandez « sauce à part » ou « peu d'huile » dans les instructions au moment de commander.</span></li>
+  </ul>
+  <p class="mt-3 text-[11px] text-gray-400">Valeurs estimées par portion, fournies à titre indicatif. En cas de pathologie (diabète, hypertension…), suivez l'avis de votre médecin.</p>
+</section>
+{% endblock %}

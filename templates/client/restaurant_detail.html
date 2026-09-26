@@ -52,7 +52,17 @@
     </div>
   </div>
 
-  {% if resto.bio %}<p class="px-5 pt-4 text-sm text-gray-500">{{ resto.bio }}</p>{% endif %}
+  <div class="px-5 pt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
+    <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 {% if resto.is_open_now %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+      <span class="h-2 w-2 rounded-full {% if resto.is_open_now %}bg-emerald-500{% else %}bg-gray-400{% endif %}"></span>{{ resto.opening_status_label }}</span>
+    <span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">Livraison {{ resto.delivery_fee }} {{ CURRENCY }}</span>
+    {% if resto.min_order %}<span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">Minimum {{ resto.min_order }} {{ CURRENCY }}</span>{% endif %}
+    {% if resto.neighborhood %}<span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">{{ resto.neighborhood }}</span>{% endif %}
+  </div>
+  {% if not resto.is_open_now %}
+  <p class="mx-4 mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800"><b>Restaurant fermé.</b> Vous pouvez parcourir le menu et préparer votre panier ; la commande sera possible à l'ouverture.</p>
+  {% endif %}
+  {% if resto.bio %}<p class="px-5 pt-3 text-sm text-gray-500">{{ resto.bio }}</p>{% endif %}
 
   <!-- Onglets sections -->
   {% if sections %}
@@ -80,6 +90,13 @@
     {% endfor %}
     {% for dish in unsectioned %}{% include "client/_dish_row.html" with dish=dish %}{% endfor %}
   </div>
+
+  <details class="mx-4 mb-6 rounded-2xl border border-gray-100 p-4">
+    <summary class="cursor-pointer text-sm font-bold text-gray-900">Horaires d'ouverture</summary>
+    <ul class="mt-3 space-y-1 text-sm">
+      {% for h in resto.weekly_hours %}<li class="flex justify-between"><span class="text-gray-500">{{ h.label }}</span><span class="font-semibold text-gray-800 tabular">{% if h.open %}{{ h.start }} – {{ h.end }}{% else %}Fermé{% endif %}</span></li>{% endfor %}
+    </ul>
+  </details>
 
   <!-- Avis -->
   {% if reviews %}

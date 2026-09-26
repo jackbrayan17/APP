@@ -1,84 +1,125 @@
 {% extends "restaurant_dashboard/base.html" %}
+{% load humanize %}
 {% block title %}Menu — {{ resto.name }}{% endblock %}
 {% block dash %}
-<div x-data="{ open:false, edit:null }">
+{{ dishes_data|json_script:"dishes-data" }}
+<div x-data="menuEditor()">
   <div class="flex items-center justify-between">
-    <h2 class="font-extrabold text-lg text-gray-900">Mon menu</h2>
-    <button @click="edit=null; open=true" class="px-4 py-2 rounded-xl bg-brand text-white font-bold text-sm">+ Plat</button>
+    <div>
+      <h2 class="font-extrabold text-lg text-gray-900">Mon menu</h2>
+      <p class="text-xs text-gray-500">{{ dishes|length }} plats · touchez l'interrupteur pour une rupture de stock</p>
+    </div>
+    <button @click="create()" class="px-4 py-2.5 rounded-xl bg-brand text-white font-bold text-sm shadow-md shadow-brand/25">+ Plat</button>
   </div>
 
-  <!-- Sections -->
-  <form method="post" action="{% url 'restaurants:section_save' %}" class="mt-3 flex gap-2">
+  <form method="post" action="{% url 'restaurants:section_save' %}" class="mt-4 flex gap-2">
     {% csrf_token %}
-    <input name="name" placeholder="Nouvelle section" class="flex-1 px-3 py-2 rounded-lg bg-gray-100 text-sm focus:outline-none">
-    <button class="px-4 rounded-lg bg-gray-900 text-white text-sm font-bold">Ajouter</button>
+    <input name="name" required placeholder="Nouvelle section (ex : Desserts)" class="flex-1 px-3 py-2.5 rounded-xl bg-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
+    <button class="px-4 rounded-xl bg-gray-900 text-white text-sm font-bold">Ajouter</button>
   </form>
 
   {% for section in sections %}
-  <div class="mt-5">
-    <h3 class="font-bold text-gray-900">{{ section.name }}</h3>
+  <section class="mt-6">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ section.name }}</h3>
     <div class="mt-2 space-y-2">
-      {% for dish in section.dishes.all %}
-      <div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100">
-        <div class="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">{% if dish.image %}<img src="{{ dish.image.url }}" class="w-full h-full object-cover">{% else %}<div class="w-full h-full flex items-center justify-center">🍽️</div>{% endif %}</div>
-        <div class="flex-1 min-w-0">
-          <p class="font-semibold text-gray-900 text-sm truncate">{{ dish.name }} {% if not dish.is_available %}<span class="text-[10px] text-red-500">(indispo)</span>{% endif %}</p>
-          <p class="text-xs text-gray-500">{{ dish.price }} FCFA • {{ dish.prep_time }} min{% if dish.is_diet %} • Diététique{% endif %}</p>
-        </div>
-        <button @click='edit={{ dish.id }}; open=true' class="text-gray-400 p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg></button>
-        <form method="post" action="{% url 'restaurants:dish_delete' dish.id %}" onsubmit="return confirm('Supprimer ce plat ?')">{% csrf_token %}<button class="text-red-400 p-2"><svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg></button></form>
-      </div>
-      {% endfor %}
+      {% for dish in section.dishes.all %}{% include "restaurant_dashboard/_menu_dish.html" %}{% empty %}
+      <p class="rounded-xl bg-gray-50 px-3 py-4 text-center text-xs text-gray-400">Aucun plat dans cette section.</p>{% endfor %}
     </div>
-  </div>
-  {% empty %}
-  <p class="mt-6 text-gray-400 text-sm text-center">Aucune section. Créez-en une puis ajoutez des plats.</p>
+  </section>
   {% endfor %}
+  {% if unsectioned %}
+  <section class="mt-6">
+    <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400">Sans section</h3>
+    <div class="mt-2 space-y-2">{% for dish in unsectioned %}{% include "restaurant_dashboard/_menu_dish.html" %}{% endfor %}</div>
+  </section>
+  {% endif %}
+  {% if not sections and not unsectioned %}
+  <p class="mt-6 text-gray-400 text-sm text-center">Créez une section, puis ajoutez vos plats.</p>
+  {% endif %}
 
-  <!-- Modal plat -->
-  <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-end justify-center bg-black/40" @click.self="open=false">
+  <!-- Formulaire plat (creation / edition pre-remplie) -->
+  <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-end justify-center bg-black/40" @click.self="open=false" @keydown.escape.window="open=false">
     <form method="post" action="{% url 'restaurants:dish_save' %}" enctype="multipart/form-data"
-          class="w-full max-w-[480px] bg-white rounded-t-3xl p-5 max-h-[88dvh] overflow-y-auto">
+          class="w-full max-w-[480px] bg-white rounded-t-3xl p-5 max-h-[90dvh] overflow-y-auto">
       {% csrf_token %}
-      <input type="hidden" name="dish_id" :value="edit">
+      <input type="hidden" name="dish_id" :value="edit || ''">
       <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4"></div>
       <h3 class="font-extrabold text-lg" x-text="edit ? 'Modifier le plat' : 'Nouveau plat'"></h3>
       <div class="mt-4 space-y-3">
-        <input name="name" required placeholder="Nom du plat" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-        <textarea name="description" rows="2" placeholder="Description" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></textarea>
+        <label class="block text-xs font-bold text-gray-600">Nom du plat
+          <input name="name" required x-model="f.name" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-brand/30"></label>
+        <label class="block text-xs font-bold text-gray-600">Description
+          <textarea name="description" rows="2" x-model="f.description" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-brand/30"></textarea></label>
         <div class="grid grid-cols-2 gap-3">
-          <input name="price" type="number" required placeholder="Prix (FCFA)" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-          <input name="prep_time" type="number" value="20" placeholder="Temps (min)" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+          <label class="block text-xs font-bold text-gray-600">Prix (FCFA)
+            <input name="price" type="number" min="0" required x-model="f.price" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 text-sm font-normal focus:outline-none"></label>
+          <label class="block text-xs font-bold text-gray-600">Préparation (min)
+            <input name="prep_time" type="number" min="1" x-model="f.prep_time" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 text-sm font-normal focus:outline-none"></label>
         </div>
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
-          <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Partie diététique</p>
-          <div class="mt-3 grid grid-cols-2 gap-3">
-            <input name="calories" type="number" placeholder="Calories" class="px-4 py-3 rounded-xl bg-white focus:outline-none">
-            <input name="protein_grams" type="number" placeholder="Protéines (g)" class="px-4 py-3 rounded-xl bg-white focus:outline-none">
+        <div class="grid grid-cols-2 gap-3">
+          <select name="section" x-model="f.section_id" class="w-full px-4 py-3 rounded-xl bg-gray-100 text-sm focus:outline-none">
+            <option value="">— Section —</option>
+            {% for s in sections %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select>
+          <select name="category" x-model="f.category_id" class="w-full px-4 py-3 rounded-xl bg-gray-100 text-sm focus:outline-none">
+            <option value="">— Catégorie —</option>
+            {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <fieldset class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
+          <legend class="px-1 text-xs font-bold uppercase tracking-wide text-emerald-700">Diététique · par portion</legend>
+          <div class="grid grid-cols-5 gap-2">
+            <label class="text-[10px] font-bold text-gray-600">kcal<input name="calories" type="number" min="0" x-model="f.calories" class="mt-1 w-full rounded-lg bg-white px-2 py-2 text-sm focus:outline-none"></label>
+            <label class="text-[10px] font-bold text-sky-700">Prot. g<input name="protein_grams" type="number" min="0" x-model="f.protein_grams" class="mt-1 w-full rounded-lg bg-white px-2 py-2 text-sm focus:outline-none"></label>
+            <label class="text-[10px] font-bold text-amber-700">Gluc. g<input name="carbs_grams" type="number" min="0" x-model="f.carbs_grams" class="mt-1 w-full rounded-lg bg-white px-2 py-2 text-sm focus:outline-none"></label>
+            <label class="text-[10px] font-bold text-rose-600">Lip. g<input name="fat_grams" type="number" min="0" x-model="f.fat_grams" class="mt-1 w-full rounded-lg bg-white px-2 py-2 text-sm focus:outline-none"></label>
+            <label class="text-[10px] font-bold text-emerald-700">Fibres<input name="fiber_grams" type="number" min="0" x-model="f.fiber_grams" class="mt-1 w-full rounded-lg bg-white px-2 py-2 text-sm focus:outline-none"></label>
           </div>
-          <input name="dietary_tags" placeholder="Tags: léger, protéiné, végétarien..." class="mt-3 w-full px-4 py-3 rounded-xl bg-white focus:outline-none">
-          <textarea name="dietary_note" rows="2" placeholder="Conseil nutritionnel court" class="mt-3 w-full px-4 py-3 rounded-xl bg-white focus:outline-none"></textarea>
-        </div>
-        <select name="section" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-          <option value="">— Section —</option>
-          {% for s in sections %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
-        </select>
-        <select name="category" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-          <option value="">— Catégorie —</option>
-          {% for c in categories %}<option value="{{ c.id }}">{{ c.emoji }} {{ c.name }}</option>{% endfor %}
-        </select>
-        <label class="block text-sm font-semibold text-gray-700">Photo du plat
+          <p class="mt-2 text-[11px] text-gray-500" x-show="f.protein_grams && f.carbs_grams && f.fat_grams">
+            Calcul : <b x-text="Math.round(f.protein_grams*4 + f.carbs_grams*4 + f.fat_grams*9)"></b> kcal d'après les macros</p>
+          <input name="dietary_tags" x-model="f.dietary_tags" placeholder="Tags : léger, protéiné, végétarien, vapeur…" class="mt-2 w-full px-3 py-2.5 rounded-xl bg-white text-sm focus:outline-none">
+          <textarea name="dietary_note" rows="2" x-model="f.dietary_note" placeholder="Conseil nutritionnel court pour le client" class="mt-2 w-full px-3 py-2.5 rounded-xl bg-white text-sm focus:outline-none"></textarea>
+          <label class="mt-2 flex items-center gap-2 text-sm font-semibold text-emerald-800"><input type="checkbox" name="is_diet" x-model="f.is_diet" class="accent-emerald-600"> Afficher dans l'espace diététique</label>
+        </fieldset>
+
+        <label class="block text-xs font-bold text-gray-600">Photo du plat <span class="font-normal text-gray-400" x-show="edit">(laisser vide pour garder l'actuelle)</span>
           <input name="image" type="file" accept="image/*" class="mt-1 w-full text-sm"></label>
-        <label class="block text-sm font-semibold text-gray-700">Vidéo (optionnel)
+        <label class="block text-xs font-bold text-gray-600">Vidéo (optionnel)
           <input name="video" type="file" accept="video/*" class="mt-1 w-full text-sm"></label>
-        <div class="flex gap-4">
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_available" checked> Disponible</label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_popular"> 🔥 Populaire</label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_diet"> Diététique</label>
+        <div class="flex gap-5">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_available" x-model="f.is_available" class="accent-[#FF6B1A]"> Disponible</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_popular" x-model="f.is_popular" class="accent-[#FF6B1A]"> Populaire</label>
         </div>
+        <input type="hidden" name="is_available" value="off" x-bind:disabled="f.is_available">
       </div>
-      <button type="submit" class="mt-5 w-full py-3.5 rounded-xl bg-brand text-white font-bold">Enregistrer</button>
+      <div class="mt-5 grid grid-cols-3 gap-2">
+        <button type="button" @click="open=false" class="rounded-xl bg-gray-100 py-3.5 font-bold text-gray-600">Annuler</button>
+        <button type="submit" class="col-span-2 rounded-xl bg-brand py-3.5 font-bold text-white">Enregistrer</button>
+      </div>
     </form>
   </div>
 </div>
+<script>
+function menuEditor(){
+  const data = JSON.parse(document.getElementById('dishes-data').textContent);
+  const blank = {name:'', description:'', price:'', prep_time:20, calories:'', protein_grams:'', carbs_grams:'',
+                 fat_grams:'', fiber_grams:'', dietary_tags:'', dietary_note:'', section_id:'', category_id:'',
+                 is_available:true, is_popular:false, is_diet:false};
+  return {
+    open:false, edit:null, f:{...blank},
+    create(){ this.edit=null; this.f={...blank}; this.open=true; },
+    modify(id){
+      const d = data[id]; if(!d) return;
+      this.edit=id;
+      this.f = Object.fromEntries(Object.entries({...blank, ...d}).map(([k,v]) => [k, v === null ? '' : (typeof v === 'number' && k.endsWith('_id') ? String(v) : v)]));
+      this.open=true;
+    },
+    toggle(id, el){
+      fetch(`/resto/menu/plat/${id}/disponibilite/`, {method:'POST', headers:{'X-CSRFToken':OE.csrftoken,'X-Requested-With':'XMLHttpRequest'}})
+        .then(r=>r.json()).then(d=>{ data[id].is_available = d.available; OE.toast(d.available ? 'Plat de nouveau disponible' : 'Plat masqué (rupture)'); el.dataset.on = d.available ? '1' : '0'; });
+    }
+  };
+}
+</script>
 {% endblock %}

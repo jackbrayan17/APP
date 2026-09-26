@@ -8,6 +8,8 @@ urlpatterns = [
     path("livreur/disponibilite/", views.toggle_available, name="toggle_available"),
     path("livreur/position/", views.update_location, name="update_location"),
     path("livreur/commande/<int:order_id>/accepter/", views.accept_order, name="accept"),
+    path("livreur/commande/<int:order_id>/refuser/", views.decline_order, name="decline"),
+    path("livreur/missions/", views.offers_json, name="offers_json"),
     path("livreur/commande/<int:order_id>/statut/", views.update_status, name="update_status"),
     path("suivi/<str:number>/", views.order_map, name="order_map"),
 ]

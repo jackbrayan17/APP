@@ -1,73 +1,144 @@
 {% extends "client/base.html" %}
+{% load humanize %}
 {% block title %}Panier — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-5">
+<div class="px-4 pt-5 flex items-center justify-between">
   <h1 class="text-2xl font-extrabold text-gray-900">Mon panier</h1>
+  {% if groups %}<span class="text-sm font-semibold text-gray-400">{{ cart_count }} article{{ cart_count|pluralize }}</span>{% endif %}
 </div>
 
 {% if groups %}
-<div class="px-4 mt-4 space-y-5" x-data="{ total: {{ total }} }">
-  {% for rid, g in groups.items %}
-  <div class="rounded-2xl border border-gray-100 p-4">
-    <h2 class="font-bold text-gray-900">{{ g.name }}</h2>
-    <div class="mt-3 space-y-3">
+<div class="px-4 mt-4 space-y-4 pb-36">
+  {% for g in groups %}
+  <section class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+    <a href="{% url 'restaurants:detail' g.restaurant.slug %}" class="flex items-center gap-3">
+      <span class="h-10 w-10 overflow-hidden rounded-xl bg-gray-100">{% if g.restaurant.logo %}<img src="{{ g.restaurant.logo.url }}" alt="" class="h-full w-full object-cover">{% endif %}</span>
+      <span class="min-w-0 flex-1">
+        <span class="block font-bold text-gray-900">{{ g.restaurant.name }}</span>
+        <span class="block text-xs {% if g.restaurant.is_open_now %}text-emerald-600{% else %}text-amber-600{% endif %} font-semibold">{{ g.restaurant.opening_status_label }} · {{ g.restaurant.delivery_time_label }}</span>
+      </span>
+      <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="m9 5 7 7-7 7"/></svg>
+    </a>
+    <div class="mt-3 divide-y divide-gray-50">
       {% for item in g.items %}
-      <div class="flex items-center gap-3" x-data="{ qty: {{ item.qty }} }">
-        <div class="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-          {% if item.image %}<img src="{{ item.image }}" class="w-full h-full object-cover">{% else %}<div class="w-full h-full flex items-center justify-center">🍽️</div>{% endif %}
+      <div class="flex items-center gap-3 py-3" x-data="{ qty: {{ item.qty }}, busy:false }">
+        <div class="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+          {% if item.dish.image %}<img src="{{ item.dish.image.url }}" class="w-full h-full object-cover" alt="">{% endif %}
         </div>
         <div class="flex-1 min-w-0">
-          <p class="font-semibold text-gray-900 text-sm leading-tight">{{ item.name }}</p>
-          <p class="text-brand font-bold text-sm mt-0.5">{{ item.price }} {{ CURRENCY }}</p>
+          <p class="font-semibold text-gray-900 text-sm leading-tight">{{ item.dish.name }}</p>
+          <p class="text-gray-500 text-xs mt-0.5 tabular">{{ item.price|intcomma }} {{ CURRENCY }}{% if item.dish.calories %} · {{ item.dish.calories }} kcal{% endif %}</p>
+          {% if not item.dish.is_available %}<p class="text-xs font-bold text-red-500">Plus disponible</p>{% endif %}
         </div>
-        <div class="flex items-center gap-2">
-          <button @click="qty=Math.max(0,qty-1); update({{ item.id }}, qty)" class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600">−</button>
-          <span class="w-5 text-center font-bold" x-text="qty"></span>
-          <button @click="qty++; update({{ item.id }}, qty)" class="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center font-bold">+</button>
+        <div class="flex items-center gap-1 rounded-full bg-gray-100 p-1">
+          <button @click="qty=Math.max(0,qty-1); update({{ item.dish.id }}, qty)" class="w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-gray-700 shadow-sm" :aria-label="qty===1 ? 'Retirer' : 'Diminuer'">
+            <template x-if="qty===1"><svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg></template>
+            <template x-if="qty!==1"><span>−</span></template>
+          </button>
+          <span class="w-6 text-center text-sm font-bold tabular" x-text="qty"></span>
+          <button @click="qty++; update({{ item.dish.id }}, qty)" class="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center font-bold" aria-label="Augmenter">+</button>
         </div>
       </div>
       {% endfor %}
     </div>
-    <div class="mt-3 pt-3 border-t border-gray-50 flex justify-between text-sm">
-      <span class="text-gray-500">Sous-total</span>
-      <span class="font-bold">{{ g.subtotal }} {{ CURRENCY }}</span>
-    </div>
-  </div>
+    <dl class="mt-2 space-y-1 border-t border-gray-100 pt-3 text-sm">
+      <div class="flex justify-between text-gray-500"><dt>Sous-total</dt><dd class="tabular">{{ g.subtotal|intcomma }} {{ CURRENCY }}</dd></div>
+      <div class="flex justify-between text-gray-500"><dt>Livraison</dt><dd class="tabular">{{ g.delivery_fee|intcomma }} {{ CURRENCY }}</dd></div>
+    </dl>
+    {% for b in g.blockers %}<p class="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">{{ b }}</p>{% endfor %}
+  </section>
   {% endfor %}
+  {% if groups|length > 1 %}<p class="px-1 text-xs text-gray-500">Vous commandez chez {{ groups|length }} restaurants : chacun prépare et livre sa commande séparément (frais de livraison par restaurant).</p>{% endif %}
 
   {% if user.is_authenticated %}
-  <form method="post" action="{% url 'orders:checkout' %}" class="space-y-3"
-        x-data="{ locate(){ OE.getLocation().then(p=>{ $refs.lat.value=p.lat; $refs.lng.value=p.lng; $refs.addr.value='📍 Position GPS ('+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+')'; }); } }">
+  <form method="post" action="{% url 'orders:checkout' %}" class="space-y-4" id="checkout-form"
+        x-data="{ pay:'cash', addr:'{% if addresses %}{{ addresses.0.id }}{% else %}new{% endif %}', locating:false,
+                  locate(){ this.locating=true; OE.getLocation().then(p=>{ $refs.lat.value=p.lat; $refs.lng.value=p.lng; if(!$refs.addr.value) $refs.addr.value='Position GPS ('+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+')'; OE.toast('Position GPS enregistrée'); }).catch(()=>OE.toast('Localisation refusée','warn')).finally(()=>this.locating=false); } }">
     {% csrf_token %}
-    <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
-    <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
-    <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" required class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    <button type="button" @click="locate" class="w-full py-2.5 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Localiser ma position</button>
-    <select name="payment_method" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-      <option value="cash">Espèces à la livraison</option>
-      <option value="momo">MTN Mobile Money</option>
-      <option value="om">Orange Money</option>
-      <option value="card">Carte bancaire</option>
-    </select>
-    <input name="promo_code" placeholder="Code promo (optionnel)" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none uppercase">
+    <section class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold text-gray-900">Adresse de livraison</h2>
+      <div class="mt-3 space-y-2">
+        {% for a in addresses %}
+        <label class="flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition" :class="addr=='{{ a.id }}' ? 'border-brand bg-brand-50/60' : 'border-gray-200'">
+          <input type="radio" name="address_id" value="{{ a.id }}" x-model="addr" class="mt-1 accent-[#FF6B1A]">
+          <span class="min-w-0"><span class="block text-sm font-bold text-gray-900">{{ a.label }}</span><span class="block text-xs text-gray-500">{{ a.address }}{% if a.instructions %} · {{ a.instructions }}{% endif %}</span></span>
+        </label>
+        {% endfor %}
+        <label class="flex cursor-pointer items-center gap-3 rounded-2xl border p-3" :class="addr=='new' ? 'border-brand bg-brand-50/60' : 'border-gray-200'">
+          <input type="radio" name="address_id" value="" x-model="addr" @change="addr='new'" {% if not addresses %}checked{% endif %} class="accent-[#FF6B1A]">
+          <span class="text-sm font-bold text-gray-900">Nouvelle adresse</span>
+        </label>
+        <div x-show="addr=='new'" x-cloak class="space-y-2 pt-1">
+          <input type="hidden" name="lat" x-ref="lat" value="{{ user.lat|default:'' }}">
+          <input type="hidden" name="lng" x-ref="lng" value="{{ user.lng|default:'' }}">
+          <input name="address" x-ref="addr" value="{% if not addresses %}{{ user.address }}{% endif %}" placeholder="Quartier, rue, repère (ex : Akwa, face pharmacie)" :required="addr=='new'" class="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
+          <div class="flex gap-2">
+            <button type="button" @click="locate" class="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-brand/30 py-2.5 text-sm font-bold text-brand">
+              <svg class="w-4 h-4" :class="locating && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+              Ma position GPS</button>
+          </div>
+          <label class="flex items-center gap-2 text-xs font-semibold text-gray-600"><input type="checkbox" name="save_address" checked class="accent-[#FF6B1A]"> Enregistrer comme
+            <select name="address_label" class="rounded-lg bg-gray-100 px-2 py-1 font-bold"><option>Domicile</option><option>Bureau</option><option>Autre</option></select></label>
+        </div>
+      </div>
+    </section>
 
-    <div class="rounded-2xl bg-gray-50 p-4 space-y-2">
-      <div class="flex justify-between text-gray-500 text-sm"><span>Sous-total</span><span>{{ total }} {{ CURRENCY }}</span></div>
-      <div class="flex justify-between text-gray-500 text-sm"><span>Livraison</span><span>variable / resto</span></div>
-      <div class="flex justify-between font-extrabold text-lg pt-2 border-t border-gray-200"><span>Total articles</span><span class="text-brand">{{ total }} {{ CURRENCY }}</span></div>
+    <section class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold text-gray-900">Instructions spéciales</h2>
+      <textarea name="notes" rows="2" maxlength="300" placeholder="Pour le cuisinier ou le livreur : sans piment, sauce à part, sonner au portail…" class="mt-2 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30"></textarea>
+    </section>
+
+    <section class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold text-gray-900">Paiement</h2>
+      <div class="mt-3 grid gap-2">
+        {% for value, label, hint in payment_choices %}
+        <label class="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition" :class="pay=='{{ value }}' ? 'border-brand bg-brand-50/60' : 'border-gray-200'">
+          <input type="radio" name="payment_method" value="{{ value }}" x-model="pay" class="accent-[#FF6B1A]">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-black {% if value == 'momo' %}bg-yellow-400 text-gray-900{% elif value == 'om' %}bg-orange-500 text-white{% else %}bg-emerald-100 text-emerald-700{% endif %}">{% if value == 'momo' %}MTN{% elif value == 'om' %}OM{% else %}CFA{% endif %}</span>
+          <span><span class="block text-sm font-bold text-gray-900">{{ label }}</span><span class="block text-xs text-gray-500">{{ hint }}</span></span>
+        </label>
+        {% endfor %}
+      </div>
+      <div x-show="pay=='momo' || pay=='om'" x-cloak class="mt-3">
+        <label class="text-xs font-bold text-gray-600" for="payment_phone">Numéro à débiter</label>
+        <input id="payment_phone" name="payment_phone" type="tel" inputmode="tel" value="{{ user.phone }}" placeholder="6XX XX XX XX" :required="pay=='momo' || pay=='om'" class="mt-1 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold tracking-wide focus:outline-none focus:ring-2 focus:ring-brand/30">
+      </div>
+      <input name="promo_code" placeholder="Code promo (optionnel)" class="mt-3 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </section>
+
+    <dl class="rounded-3xl bg-gray-50 p-4 space-y-2 text-sm">
+      <div class="flex justify-between text-gray-500"><dt>Articles</dt><dd class="tabular">{{ items_total|intcomma }} {{ CURRENCY }}</dd></div>
+      <div class="flex justify-between text-gray-500"><dt>Livraison</dt><dd class="tabular">{{ fees_total|intcomma }} {{ CURRENCY }}</dd></div>
+      <div class="flex justify-between border-t border-gray-200 pt-2 text-lg font-extrabold text-gray-900"><dt>Total</dt><dd class="tabular">{{ grand_total|intcomma }} {{ CURRENCY }}</dd></div>
+      <p class="text-[11px] text-gray-400">Réduction promo appliquée à la validation.</p>
+    </dl>
+
+    <div class="fixed bottom-[calc(68px+env(safe-area-inset-bottom))] left-1/2 z-30 w-full max-w-[480px] -translate-x-1/2 border-t border-gray-100 bg-white/95 p-4 backdrop-blur">
+      {% if has_blockers %}
+      <button type="button" disabled class="w-full rounded-2xl bg-gray-200 py-4 font-bold text-gray-500">Un restaurant ne peut pas recevoir la commande</button>
+      {% else %}
+      <button type="submit" class="flex w-full items-center justify-between rounded-2xl bg-brand px-5 py-4 font-bold text-white shadow-lg shadow-brand/30 active:scale-[.99] transition">
+        <span x-text="(pay=='momo'||pay=='om') ? 'Payer avec Mobile Money' : 'Commander'"></span>
+        <span class="tabular">{{ grand_total|intcomma }} {{ CURRENCY }}</span>
+      </button>
+      {% endif %}
     </div>
-    <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold text-[15px] shadow-lg shadow-brand/30">Commander maintenant</button>
   </form>
   {% else %}
-  <a href="{% url 'accounts:login' %}?next={% url 'orders:cart' %}" class="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center">Se connecter pour commander</a>
+  <a href="{% url 'accounts:login' %}?next={% url 'orders:cart' %}" class="block w-full py-4 rounded-2xl bg-brand text-white font-bold text-center">Se connecter pour commander</a>
   {% endif %}
 </div>
 {% else %}
 <div class="flex flex-col items-center justify-center py-24 text-center px-8">
-  <div class="text-6xl">🛒</div>
+  <div class="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand-50 text-brand">
+    <svg class="w-10 h-10" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+  </div>
   <h2 class="mt-4 text-lg font-bold text-gray-900">Votre panier est vide</h2>
-  <p class="text-gray-500 mt-1">Ajoutez des plats pour commencer.</p>
-  <a href="{% url 'core:home' %}" class="mt-6 px-6 py-3 rounded-xl bg-brand text-white font-bold">Explorer les restaurants</a>
+  <p class="text-gray-500 mt-1 text-sm">Les plats que vous ajoutez apparaîtront ici.</p>
+  <div class="mt-6 flex gap-2">
+    <a href="{% url 'core:home' %}" class="px-5 py-3 rounded-xl bg-brand text-white font-bold text-sm">Voir les restaurants</a>
+    <a href="{% url 'core:dietetique' %}" class="px-5 py-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-sm">Plats diététiques</a>
+  </div>
 </div>
 {% endif %}
 
@@ -76,7 +147,7 @@ function update(id, qty){
   fetch(`/panier/modifier/${id}/`, { method:'POST',
     headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':OE.csrftoken},
     body:`qty=${qty}` })
-    .then(r=>r.json()).then(d=>{ OE.updateCartBadge(d.count); if(qty===0) location.reload(); else setTimeout(()=>location.reload(),300); });
+    .then(r=>r.json()).then(()=>location.reload());
 }
 </script>
 {% endblock %}

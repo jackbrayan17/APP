@@ -1,0 +1,2 @@
+{% if grade %}<span title="Indice nutritionnel ONE EAT {{ grade }}" class="inline-flex items-center justify-center {% if big %}w-10 h-10 text-lg rounded-xl{% else %}w-5 h-5 text-[11px] rounded-md{% endif %} font-black text-white
+  {% if grade == 'A' %}bg-emerald-600{% elif grade == 'B' %}bg-lime-500{% elif grade == 'C' %}bg-amber-400{% else %}bg-orange-500{% endif %}">{{ grade }}</span>{% endif %}

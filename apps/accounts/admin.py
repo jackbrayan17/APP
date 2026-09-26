@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User
+from .models import User, Address
 
 
 @admin.register(User)
@@ -12,3 +12,9 @@ class CustomUserAdmin(UserAdmin):
         ("ONE EAT", {"fields": ("role", "phone", "avatar", "city", "address",
                                 "lat", "lng", "is_verified")}),
     )
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ("user", "label", "address", "is_default")
+    search_fields = ("user__username", "address")

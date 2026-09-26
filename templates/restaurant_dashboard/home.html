@@ -1,34 +1,71 @@
 {% extends "restaurant_dashboard/base.html" %}
+{% load humanize %}
 {% block title %}Tableau de bord — {{ resto.name }}{% endblock %}
 {% block dash %}
-<div class="grid grid-cols-2 gap-3">
-  <div class="rounded-2xl bg-brand text-white p-4"><p class="text-3xl font-extrabold">{{ stats.orders_today }}</p><p class="text-sm opacity-90">Commandes aujourd'hui</p></div>
-  <div class="rounded-2xl bg-gray-900 text-white p-4"><p class="text-3xl font-extrabold">{{ stats.active }}</p><p class="text-sm opacity-80">En cours</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.revenue }}</p><p class="text-xs text-gray-500">Revenus livrés (FCFA)</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.rating }}/5</p><p class="text-xs text-gray-500">Note moyenne</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.dishes }}</p><p class="text-xs text-gray-500">Plats au menu</p></div>
-  <div class="rounded-2xl border border-gray-100 p-4"><p class="text-2xl font-extrabold text-gray-900">{{ stats.drivers }}</p><p class="text-xs text-gray-500">Livreurs affectés</p></div>
+{% if resto.is_temporarily_closed %}
+<div class="mb-4 rounded-2xl bg-amber-50 p-4 text-sm text-amber-800"><b>Restaurant fermé temporairement.</b> Les clients voient « {{ resto.opening_status_label }} ». Touchez « Rouvrir » en haut pour reprendre les commandes.</div>
+{% elif not resto.is_open_now %}
+<div class="mb-4 rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">{{ resto.opening_status_label }}. <a href="{% url 'restaurants:customize' %}#horaires" class="font-bold text-brand">Modifier les horaires</a></div>
+{% endif %}
+
+<!-- A traiter -->
+<div class="grid grid-cols-3 gap-2">
+  <a href="{% url 'restaurants:orders' %}?tab=new" class="rounded-2xl p-3 {% if stats.to_handle %}bg-brand text-white shadow-lg shadow-brand/25{% else %}bg-gray-50 text-gray-900{% endif %}">
+    <p class="text-2xl font-black tabular">{{ stats.to_handle }}</p><p class="text-[11px] font-semibold opacity-80">À accepter</p></a>
+  <a href="{% url 'restaurants:orders' %}?tab=kitchen" class="rounded-2xl bg-gray-50 p-3 text-gray-900">
+    <p class="text-2xl font-black tabular">{{ stats.in_kitchen }}</p><p class="text-[11px] font-semibold text-gray-500">En cuisine</p></a>
+  <a href="{% url 'restaurants:orders' %}?tab=ready" class="rounded-2xl bg-gray-50 p-3 text-gray-900">
+    <p class="text-2xl font-black tabular">{{ stats.ready }}</p><p class="text-[11px] font-semibold text-gray-500">Prêtes</p></a>
 </div>
 
-<div class="mt-5 flex items-center justify-between">
-  <h2 class="font-extrabold text-gray-900">Commandes récentes</h2>
-  <a href="{% url 'restaurants:orders' %}" class="text-brand text-sm font-bold">Tout voir</a>
-</div>
-<div class="mt-3 space-y-2">
-  {% for o in recent_orders %}
-  <div class="flex items-center justify-between p-3 rounded-xl border border-gray-100">
-    <div>
-      <p class="font-bold text-gray-900 text-sm">{{ o.number }}</p>
-      <p class="text-xs text-gray-500">{{ o.customer.display_name }} • {{ o.total }} FCFA</p>
-    </div>
-    {% include "client/_status_badge.html" with status=o.status label=o.status_label %}
+<!-- Chiffre d'affaires -->
+<section class="mt-4 rounded-3xl bg-gray-900 p-5 text-white">
+  <div class="flex items-center justify-between">
+    <p class="text-[11px] font-bold uppercase tracking-wider text-white/50">Chiffre d'affaires livré</p>
+    <p class="text-[11px] text-white/50">Commission ONE EAT {{ commission }} %</p>
   </div>
-  {% empty %}<p class="text-gray-400 text-sm text-center py-6">Aucune commande pour le moment.</p>{% endfor %}
+  <div class="mt-3 grid grid-cols-3 gap-2">
+    {% for p in revenue_periods %}
+    <div class="rounded-2xl bg-white/10 p-3">
+      <p class="text-[10px] font-semibold text-white/60">{{ p.label }}</p>
+      <p class="mt-0.5 text-base font-black tabular">{{ p.gross|intcomma }}</p>
+      <p class="text-[10px] text-white/50 tabular">net {{ p.net|intcomma }} · {{ p.count }} cmd</p>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-5 flex h-28 items-end gap-2" role="img" aria-label="Chiffre d'affaires des 7 derniers jours">
+    {% for c in chart %}
+    <div class="flex flex-1 flex-col items-center gap-1">
+      <div class="w-full rounded-t-md {% if forloop.last %}bg-brand{% else %}bg-white/25{% endif %}" style="height:{{ c.pct }}%" title="{{ c.value|intcomma }} FCFA"></div>
+      <span class="text-[10px] text-white/50">{{ c.label }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="mt-2 text-[11px] text-white/50">Panier moyen (30 j) : {{ revenue_periods.2.basket|intcomma }} FCFA · montants hors frais de livraison</p>
+</section>
+
+<div class="mt-4 grid grid-cols-2 gap-3">
+  <section class="rounded-3xl border border-gray-100 p-4">
+    <h2 class="text-sm font-extrabold text-gray-900">Plats les plus commandés</h2>
+    <ol class="mt-2 space-y-1.5">
+      {% for d in top_dishes %}<li class="flex justify-between gap-2 text-xs"><span class="truncate text-gray-700">{{ forloop.counter }}. {{ d.name }}</span><span class="font-bold tabular">{{ d.qty }}</span></li>
+      {% empty %}<li class="text-xs text-gray-400">Pas encore de ventes.</li>{% endfor %}
+    </ol>
+  </section>
+  <section class="rounded-3xl border border-gray-100 p-4">
+    <h2 class="text-sm font-extrabold text-gray-900">Évaluations</h2>
+    <p class="mt-1 text-2xl font-black text-gray-900">{{ resto.rating }}<span class="text-sm text-gray-400">/5</span></p>
+    <p class="text-xs text-gray-500">{{ resto.rating_count }} avis</p>
+    {% for r in recent_reviews|slice:":1" %}<p class="mt-2 line-clamp-2 text-xs italic text-gray-500">« {{ r.comment|default:"—" }} »</p>{% endfor %}
+  </section>
 </div>
 
-<div class="mt-6 grid grid-cols-2 gap-3">
-  <a href="{% url 'restaurants:menu' %}" class="p-4 rounded-2xl bg-brand-50 text-brand font-bold text-center text-sm">+ Ajouter un plat</a>
-  <a href="{% url 'restaurants:promos' %}" class="p-4 rounded-2xl bg-gray-100 text-gray-700 font-bold text-center text-sm">Lancer une promo</a>
+<div class="mt-4 grid grid-cols-2 gap-3">
+  <a href="{% url 'restaurants:menu' %}" class="rounded-2xl bg-brand-50 p-4 text-center text-sm font-bold text-brand">Gérer le menu<span class="block text-[11px] font-semibold text-brand/70">{{ stats.dishes }} plats{% if stats.unavailable %} · {{ stats.unavailable }} en rupture{% endif %}</span></a>
+  <a href="{% url 'restaurants:promos' %}" class="rounded-2xl bg-gray-100 p-4 text-center text-sm font-bold text-gray-700">Offre du jour<span class="block text-[11px] font-semibold text-gray-500">Créer une promotion</span></a>
 </div>
-<a href="{% url 'restaurants:share' resto.share_token %}" class="mt-3 block text-center p-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold text-sm">Lien de partage de ma page</a>
+<div class="mt-3 grid grid-cols-2 gap-3">
+  <a href="{% url 'restaurants:drivers' %}" class="rounded-2xl border border-gray-100 p-3 text-center text-xs font-bold text-gray-600">Livreurs affectés</a>
+  <a href="{% url 'restaurants:share' resto.share_token %}" class="rounded-2xl border border-gray-100 p-3 text-center text-xs font-bold text-gray-600">Lien de partage</a>
+</div>
 {% endblock %}

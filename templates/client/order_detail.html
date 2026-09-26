@@ -1,77 +1,115 @@
 {% extends "client/base.html" %}
+{% load humanize %}
 {% block title %}Commande {{ order.number }} — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-4">
+<div class="px-4 pt-4 pb-8">
   <div class="flex items-center gap-3">
-    <a href="{% url 'orders:list' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+    <a href="{% url 'orders:list' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center" aria-label="Retour">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg></a>
-    <div>
-      <h1 class="text-lg font-extrabold text-gray-900">Commande {{ order.number }}</h1>
-      <p class="text-xs text-gray-400">{{ order.created_at|date:"d M Y, H:i" }}</p>
+    <div class="min-w-0 flex-1">
+      <h1 class="text-lg font-extrabold text-gray-900 truncate">{{ order.restaurant.name }}</h1>
+      <p class="text-xs text-gray-400">{{ order.number }} · {{ order.created_at|date:"d M Y, H:i" }}</p>
     </div>
+    {% include "client/_status_badge.html" with status=order.status label=order.status_label %}
   </div>
 
-  <!-- Suivi statut -->
-  <div class="mt-5 rounded-2xl bg-gray-50 p-4">
-    <div class="flex items-center justify-between mb-3">
-      <span class="font-bold text-gray-900">{{ order.restaurant.name }}</span>
-      {% include "client/_status_badge.html" with status=order.status label=order.status_label %}
-    </div>
-    {% with s=order.status %}
-    <div class="flex items-center justify-between text-[10px] font-semibold text-gray-400">
-      {% for step,lbl in steps %}
-      <div class="flex-1 flex flex-col items-center">
-        <div class="w-3 h-3 rounded-full {% if step in done_steps %}bg-brand{% else %}bg-gray-300{% endif %}"></div>
-        <span class="mt-1 {% if step in done_steps %}text-brand{% endif %}">{{ lbl }}</span>
-      </div>
+  <!-- Suivi -->
+  <section class="mt-5 rounded-3xl p-5 {% if order.status == 'cancelled' %}bg-red-50{% elif order.status == 'delivered' %}bg-emerald-50{% else %}bg-gray-900 text-white{% endif %}">
+    <p class="text-[11px] font-bold uppercase tracking-wider {% if order.is_active %}text-white/60{% else %}text-gray-500{% endif %}">{% if order.is_active %}Suivi en direct{% else %}Statut{% endif %}</p>
+    <p class="mt-1 text-xl font-extrabold leading-snug" id="status-text">{{ order.customer_status_text }}</p>
+    {% if order.status != 'cancelled' %}
+    <ol class="mt-5 flex items-start" aria-label="Étapes de la commande">
+      {% for s in steps %}
+      <li class="relative flex-1 text-center">
+        {% if not forloop.first %}<span class="absolute left-0 right-1/2 top-3 h-0.5 {% if s.done %}bg-brand{% else %}{% if order.is_active %}bg-white/15{% else %}bg-gray-200{% endif %}{% endif %}"></span>{% endif %}
+        {% if not forloop.last %}<span class="absolute left-1/2 right-0 top-3 h-0.5 {% if s.done and not s.current %}bg-brand{% else %}{% if order.is_active %}bg-white/15{% else %}bg-gray-200{% endif %}{% endif %}"></span>{% endif %}
+        <span class="relative z-10 mx-auto flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold
+          {% if s.done %}bg-brand text-white{% if s.current and order.is_active %} pulse-ring{% endif %}{% else %}{% if order.is_active %}bg-white/15 text-white/50{% else %}bg-gray-200 text-gray-400{% endif %}{% endif %}">
+          {% if s.done and not s.current %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
+        <span class="mt-1.5 block text-[10px] font-semibold {% if s.done %}{% if order.is_active %}text-white{% else %}text-gray-900{% endif %}{% else %}opacity-50{% endif %}">{{ s.label }}</span>
+        {% if s.at and s.done %}<span class="block text-[9px] opacity-60 tabular">{{ s.at|date:"H:i" }}</span>{% endif %}
+      </li>
       {% endfor %}
-    </div>
-    {% endwith %}
-    {% if order.status == 'on_the_way' %}
-    <a href="{% url 'delivery:order_map' order.number %}" class="mt-4 block text-center py-3 rounded-xl bg-brand text-white font-bold text-sm">📍 Suivre la livraison en direct</a>
+    </ol>
     {% endif %}
-  </div>
+    {% if order.driver and order.is_active %}
+    <a href="{% url 'delivery:order_map' order.number %}" class="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-brand py-3.5 text-sm font-bold text-white">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>
+      Suivre le livreur sur la carte</a>
+    {% endif %}
+  </section>
+
+  {% if order.is_awaiting_payment and order.status == 'pending' %}
+  <a href="{% url 'orders:payment' order.number %}" class="mt-3 block rounded-2xl bg-amber-500 py-3.5 text-center text-sm font-bold text-white">Finaliser le paiement Mobile Money</a>
+  {% endif %}
+
+  {% if order.driver %}
+  <section class="mt-4 flex items-center gap-3 rounded-3xl border border-gray-100 p-4">
+    <span class="flex h-12 w-12 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white">{{ order.driver.initials }}</span>
+    <div class="min-w-0 flex-1">
+      <p class="font-bold text-gray-900">{{ order.driver.display_name }}</p>
+      <p class="text-xs text-gray-500">Votre livreur{% if order.driver.driver_profile %} · ★ {{ order.driver.driver_profile.rating }} · {{ order.driver.driver_profile.get_vehicle_display }}{% endif %}</p>
+    </div>
+    {% if order.driver.phone and order.is_active %}<a href="tel:{{ order.driver.phone }}" class="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600" aria-label="Appeler le livreur">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg></a>{% endif %}
+  </section>
+  {% endif %}
 
   <!-- Articles -->
-  <div class="mt-4">
-    <h2 class="font-bold text-gray-900 mb-2">Articles</h2>
-    <div class="space-y-2">
+  <section class="mt-4 rounded-3xl border border-gray-100 p-4">
+    <h2 class="font-extrabold text-gray-900">Récapitulatif</h2>
+    <div class="mt-3 space-y-2">
       {% for item in order.items.all %}
       <div class="flex justify-between text-sm">
-        <span class="text-gray-700">{{ item.quantity }}× {{ item.name }}</span>
-        <span class="font-semibold">{{ item.line_total }} {{ CURRENCY }}</span>
+        <span class="text-gray-700"><b class="tabular">{{ item.quantity }}×</b> {{ item.name }}</span>
+        <span class="font-semibold tabular">{{ item.line_total|intcomma }} {{ CURRENCY }}</span>
       </div>
       {% endfor %}
     </div>
-    <div class="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm">
-      <div class="flex justify-between text-gray-500"><span>Sous-total</span><span>{{ order.items_total }} {{ CURRENCY }}</span></div>
-      <div class="flex justify-between text-gray-500"><span>Livraison</span><span>{{ order.delivery_fee }} {{ CURRENCY }}</span></div>
-      {% if order.discount %}<div class="flex justify-between text-green-600"><span>Réduction ({{ order.promo_code }})</span><span>−{{ order.discount }} {{ CURRENCY }}</span></div>{% endif %}
-      <div class="flex justify-between font-extrabold text-base pt-2 border-t border-gray-100"><span>Total</span><span class="text-brand">{{ order.total }} {{ CURRENCY }}</span></div>
-    </div>
-  </div>
+    <dl class="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-sm">
+      <div class="flex justify-between text-gray-500"><dt>Sous-total</dt><dd class="tabular">{{ order.items_total|intcomma }} {{ CURRENCY }}</dd></div>
+      <div class="flex justify-between text-gray-500"><dt>Livraison</dt><dd class="tabular">{{ order.delivery_fee|intcomma }} {{ CURRENCY }}</dd></div>
+      {% if order.discount %}<div class="flex justify-between text-emerald-600"><dt>Réduction ({{ order.promo_code }})</dt><dd class="tabular">−{{ order.discount|intcomma }} {{ CURRENCY }}</dd></div>{% endif %}
+      <div class="flex justify-between font-extrabold text-base pt-2 border-t border-gray-100"><dt>Total</dt><dd class="tabular">{{ order.total|intcomma }} {{ CURRENCY }}</dd></div>
+    </dl>
+  </section>
 
-  <div class="mt-4 rounded-xl bg-gray-50 p-4 text-sm">
-    <p class="text-gray-400 text-xs font-semibold uppercase">Livraison</p>
-    <p class="text-gray-700 mt-1">📍 {{ order.delivery_address|default:"Non précisée" }}</p>
-    <p class="text-gray-700 mt-1">💳 {{ order.get_payment_method_display }}</p>
-    {% if order.driver %}<p class="text-gray-700 mt-1">🛵 {{ order.driver.display_name }}</p>{% endif %}
-  </div>
+  <section class="mt-4 rounded-3xl bg-gray-50 p-4 text-sm space-y-2">
+    <p class="flex gap-2"><span class="w-24 flex-shrink-0 text-gray-400">Livraison</span><span class="text-gray-800">{{ order.delivery_address|default:"Non précisée" }}</span></p>
+    <p class="flex gap-2"><span class="w-24 flex-shrink-0 text-gray-400">Paiement</span><span class="text-gray-800">{{ order.get_payment_method_display }} · <b>{{ order.get_payment_status_display }}</b></span></p>
+    {% if order.notes %}<p class="flex gap-2"><span class="w-24 flex-shrink-0 text-gray-400">Instructions</span><span class="text-gray-800">{{ order.notes }}</span></p>{% endif %}
+  </section>
 
-  <!-- Actions -->
-  <div class="mt-4 space-y-2">
+  <div class="mt-5 space-y-2">
     {% if order.can_review %}
-    <a href="{% url 'orders:review' order.number %}" class="block text-center py-3.5 rounded-xl bg-brand text-white font-bold">⭐ Noter cette commande</a>
+    <a href="{% url 'orders:review' order.number %}" class="block text-center py-3.5 rounded-2xl bg-brand text-white font-bold shadow-lg shadow-brand/25">Noter le restaurant et le livreur</a>
     {% endif %}
-    <button onclick="shareOrder()" class="w-full py-3.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold">🔗 Partager la commande</button>
+    {% if not order.is_active %}
+    <form method="post" action="{% url 'orders:reorder' order.number %}">{% csrf_token %}
+      <button class="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-bold">Commander à nouveau</button>
+    </form>
+    {% endif %}
+    {% if order.is_cancellable_by_customer %}
+    <form method="post" action="{% url 'orders:cancel' order.number %}" onsubmit="return confirm('Annuler cette commande ?')">{% csrf_token %}
+      <button class="w-full py-3 rounded-2xl border-2 border-red-100 text-red-600 font-bold text-sm">Annuler la commande</button>
+    </form>
+    {% endif %}
+    <button type="button" data-share-title="Suivez ma commande ONE EAT" data-share-url="{% url 'orders:share' order.share_token %}" class="w-full py-3 rounded-2xl text-gray-600 font-bold text-sm">Partager le suivi</button>
   </div>
 </div>
 
+{% if order.is_active %}
 <script>
-function shareOrder(){
-  const url = location.origin + "{% url 'orders:share' order.share_token %}";
-  if(navigator.share){ navigator.share({title:'Ma commande ONE EAT', url}); }
-  else { navigator.clipboard.writeText(url); alert('Lien copié : '+url); }
-}
+(function(){
+  const last = "{{ order.status }}|{% if order.driver_id %}1{% endif %}";
+  setInterval(function(){
+    if (document.hidden) return;
+    fetch("{% url 'orders:status_json' order.number %}").then(r=>r.json()).then(function(d){
+      const key = d.status + "|" + (d.driver ? "1" : "");
+      if (key !== last) location.reload();
+    }).catch(function(){});
+  }, 10000);
+})();
 </script>
+{% endif %}
 {% endblock %}

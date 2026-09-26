@@ -24,6 +24,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "https://*.base44.app",
+    "https://oneeat.cm",
+    "https://www.oneeat.cm",
+    "https://oneeat.jackbrayan.com",
 ]
 
 INSTALLED_APPS = [
@@ -151,6 +154,7 @@ DELIVERY_RADIUS_KM = 10          # perimetre livreur
 DEFAULT_CITY = "Douala"
 DEFAULT_COUNTRY = "Cameroun"
 CURRENCY = "FCFA"
+PLATFORM_COMMISSION_PERCENT = int(os.environ.get("PLATFORM_COMMISSION_PERCENT", "10"))
 
 # Centre de Douala (lat, lng) pour la carte par defaut
 DOUALA_CENTER = {"lat": 4.0511, "lng": 9.7679}

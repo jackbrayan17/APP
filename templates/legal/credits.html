@@ -1,0 +1,18 @@
+{% extends "client/base.html" %}
+{% block title %}Crédits photos — ONE EAT{% endblock %}
+{% block robots %}noindex, follow{% endblock %}
+{% block content %}
+<div class="px-5 pt-6 pb-8">
+  <a href="javascript:history.back()" class="text-sm font-bold text-brand">← Retour</a>
+  <h1 class="mt-3 text-2xl font-extrabold text-gray-900">Crédits photos</h1>
+  <p class="mt-2 text-sm text-gray-500">Les photos d'illustration des plats de démonstration proviennent de photographes publiant sous licences Creative Commons. Merci à eux !</p>
+  <ul class="mt-5 divide-y divide-gray-100">
+    {% for slug, c in credits %}
+    <li class="py-3 text-sm">
+      <p class="font-semibold text-gray-900">{{ c.title }}</p>
+      <p class="text-gray-500">{% if c.creator %}{{ c.creator }} · {% endif %}{{ c.license }} · <a href="{{ c.source }}" target="_blank" rel="noopener nofollow" class="text-brand underline">source</a></p>
+    </li>
+    {% empty %}<li class="py-6 text-center text-gray-400">Aucun crédit.</li>{% endfor %}
+  </ul>
+</div>
+{% endblock %}

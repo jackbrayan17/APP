@@ -1,32 +1,91 @@
 {% extends "base.html" %}
 {% load static %}
+{% block robots %}noindex, nofollow{% endblock %}
 {% block shell_class %}safe-bottom{% endblock %}
 {% block body %}
-<header class="px-4 pt-4 pb-3 sticky top-0 bg-white z-30 border-b border-gray-50">
-  <div class="flex items-center justify-between">
-    <div class="flex items-center gap-2 min-w-0">
-      <div class="w-9 h-9 rounded-lg bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{{ resto.name|slice:":2"|upper }}</div>
+<header class="px-4 pt-4 pb-3 sticky top-0 bg-white/95 backdrop-blur z-30 border-b border-gray-100">
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-10 h-10 rounded-xl overflow-hidden bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+        {% if resto.logo %}<img src="{{ resto.logo.url }}" alt="" class="w-full h-full object-cover">{% else %}{{ resto.name|slice:":2"|upper }}{% endif %}</div>
       <div class="min-w-0">
-        <p class="text-[11px] text-gray-400 leading-none">Espace Restaurant</p>
+        <p class="text-[11px] text-gray-400 leading-none">Espace restaurant</p>
         <h1 class="font-extrabold text-gray-900 truncate">{{ resto.name }}</h1>
       </div>
     </div>
-    <a href="{% url 'accounts:profile' %}" class="text-gray-400"><svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg></a>
+    <form method="post" action="{% url 'restaurants:toggle_open' %}" {% if not resto.is_temporarily_closed %}onsubmit="return confirm('Fermer temporairement ? Les clients ne pourront plus commander.')"{% endif %}>
+      {% csrf_token %}
+      <button class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold {% if resto.is_open_now %}bg-emerald-100 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}" title="{{ resto.opening_status_label }}">
+        <span class="h-2 w-2 rounded-full {% if resto.is_open_now %}bg-emerald-500{% else %}bg-gray-400{% endif %}"></span>
+        {% if resto.is_temporarily_closed %}Fermé · Rouvrir{% elif resto.is_open_now %}Ouvert{% else %}Hors horaires{% endif %}
+      </button>
+    </form>
   </div>
 </header>
+
+<div id="new-order-banner" class="hidden sticky top-[69px] z-30 mx-4 mt-3">
+  <a href="{% url 'restaurants:orders' %}?tab=new" class="flex items-center gap-3 rounded-2xl bg-brand px-4 py-3 text-white shadow-xl shadow-brand/30 pulse-ring">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+    <span class="flex-1 text-sm font-bold">Nouvelle commande ! Touchez pour l'accepter</span>
+  </a>
+</div>
+<button id="sound-unlock" type="button" class="hidden mx-4 mt-3 w-[calc(100%-32px)] rounded-2xl border-2 border-dashed border-brand/40 bg-brand-50 py-2.5 text-xs font-bold text-brand">Activer l'alerte sonore des commandes</button>
 
 <main class="px-4 py-4 min-h-[60dvh]">{% block dash %}{% endblock %}</main>
 
 {% with active=request.resolver_match.url_name %}
-<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white border-t border-gray-100 z-40" style="padding-bottom:env(safe-area-inset-bottom)">
-  <div class="grid grid-cols-6 h-[64px] text-[10px] font-semibold">
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:dashboard' label='Accueil' icon='home' active=active %}
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:menu' label='Menu' icon='menu' active=active %}
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:orders' label='Commandes' icon='orders' active=active %}
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:promos' label='Promos' icon='promo' active=active %}
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:drivers' label='Livreurs' icon='driver' active=active %}
-    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:customize' label='Page' icon='edit' active=active %}
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/95 backdrop-blur border-t border-gray-100 z-40" style="padding-bottom:env(safe-area-inset-bottom)">
+  <div class="grid grid-cols-5 h-[64px] text-[10px] font-semibold">
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:dashboard' label='Accueil' icon='home' %}
+    <div class="relative grid">{% include "restaurant_dashboard/_navlink.html" with url='restaurants:orders' label='Commandes' icon='orders' %}
+      <span id="nav-pending" class="hidden absolute top-2 right-[22%] min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center"></span></div>
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:menu' label='Menu' icon='menu' %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:promos' label='Promos' icon='promo' %}
+    {% include "restaurant_dashboard/_navlink.html" with url='restaurants:customize' label='Ma page' icon='edit' %}
   </div>
 </nav>
 {% endwith %}
+
+<script>
+/* Alerte temps reel : sondage leger + bip (Web Audio) a chaque nouvelle commande. */
+(function(){
+  const KEY = 'oe_resto_latest';
+  let latest = +(sessionStorage.getItem(KEY) || 0);
+  let ctx = null;
+  const unlock = document.getElementById('sound-unlock');
+  function ensureAudio(){
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch(e) {}
+    return ctx && ctx.state === 'running';
+  }
+  function chime(){
+    if (!ensureAudio()) { unlock.classList.remove('hidden'); return; }
+    [0, .18, .36].forEach((t, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = [880, 1175, 1568][i];
+      g.gain.setValueAtTime(.0001, ctx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(.35, ctx.currentTime + t + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + t + .3);
+      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + .32);
+    });
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  }
+  unlock.addEventListener('click', () => { ensureAudio(); unlock.classList.add('hidden'); OE.toast('Alerte sonore activée 🔔'); });
+  document.addEventListener('click', ensureAudio, {once:true});
+  function poll(first){
+    fetch("{% url 'restaurants:orders_feed' %}").then(r => r.json()).then(d => {
+      const badge = document.getElementById('nav-pending');
+      badge.textContent = d.pending; badge.classList.toggle('hidden', !d.pending);
+      if (!first && d.latest_id > latest && d.pending) {
+        document.getElementById('new-order-banner').classList.remove('hidden');
+        chime();
+        document.title = '🔔 Nouvelle commande — ONE EAT';
+        if (location.pathname.startsWith('/resto/commandes')) setTimeout(() => location.reload(), 1500);
+      }
+      latest = Math.max(latest, d.latest_id); sessionStorage.setItem(KEY, latest);
+    }).catch(() => {});
+  }
+  poll(!latest);
+  setInterval(() => poll(false), 10000);
+})();
+</script>
 {% endblock %}

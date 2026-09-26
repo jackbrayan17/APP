@@ -52,6 +52,9 @@
     });
   </script>
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -75,6 +78,12 @@
     [x-cloak]{ display:none !important; }
     @keyframes pop { 0%{transform:scale(.9)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
     .pop{ animation:pop .25s ease; }
+    body{ -webkit-font-smoothing:antialiased; font-feature-settings:"cv11","ss01"; }
+    .tabular{ font-variant-numeric:tabular-nums; }
+    @keyframes toastIn { from{ transform:translate(-50%,16px); opacity:0 } to{ transform:translate(-50%,0); opacity:1 } }
+    .oe-toast{ animation:toastIn .22s ease-out; }
+    @keyframes pulseRing { 0%{ box-shadow:0 0 0 0 rgba(255,107,26,.45) } 100%{ box-shadow:0 0 0 14px rgba(255,107,26,0) } }
+    .pulse-ring{ animation:pulseRing 1.6s infinite; }
   </style>
   {% block head %}{% endblock %}
 </head>

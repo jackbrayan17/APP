@@ -1,9 +1,10 @@
 {% load static %}
 <a href="{% url 'restaurants:detail' r.slug %}"
    class="flex gap-3 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-[.99] transition">
-  <div class="w-[84px] h-[84px] rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-    {% if r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">
-    {% elif r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">{% endif %}
+  <div class="relative w-[84px] h-[84px] rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+    {% if r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover {% if not r.is_open_now %}grayscale opacity-70{% endif %}" alt="{{ r.name }}" loading="lazy">
+    {% elif r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover" alt="{{ r.name }}" loading="lazy">{% endif %}
+    {% if not r.is_open_now %}<span class="absolute inset-x-0 bottom-0 bg-gray-900/80 text-white text-[10px] font-bold text-center py-0.5">Fermé</span>{% endif %}
   </div>
   <div class="flex-1 min-w-0">
     <div class="flex items-start justify-between gap-2">
@@ -23,5 +24,6 @@
       </span>
       <span class="text-gray-500">{{ r.delivery_fee }} {{ CURRENCY }}</span>
     </div>
+    <p class="mt-1 text-[11px] font-semibold {% if r.is_open_now %}text-emerald-600{% else %}text-gray-400{% endif %}">{{ r.opening_status_label }}{% if r.neighborhood %} · {{ r.neighborhood }}{% endif %}</p>
   </div>
 </a>

@@ -26,7 +26,9 @@ class DishSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description", "price", "current_price", "has_promo",
                   "prep_time", "image", "is_available", "is_popular", "section",
                   "restaurant_id", "restaurant_name", "restaurant_slug",
-                  "restaurant_tagline"]
+                  "restaurant_tagline", "is_diet", "calories", "protein_grams",
+                  "carbs_grams", "fat_grams", "fiber_grams", "dietary_tags",
+                  "dietary_note", "diet_goals", "nutri_grade"]
 
     def get_image(self, obj):
         return obj.image.url if obj.image else ""
@@ -50,7 +52,8 @@ class RestaurantSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "share_token", "tagline", "bio",
                   "logo", "cover_image", "neighborhood", "city", "lat", "lng",
                   "rating", "rating_count", "delivery_fee", "delivery_time_label",
-                  "brand_color", "is_pro", "is_premium", "is_featured"]
+                  "brand_color", "is_pro", "is_premium", "is_featured",
+                  "is_open_now", "opening_status_label", "min_order"]
 
     def get_logo(self, obj):
         return obj.logo.url if obj.logo else ""
@@ -82,7 +85,9 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ["id", "number", "share_token", "restaurant_name", "status",
                   "status_label", "items_total", "delivery_fee", "discount", "total",
                   "delivery_address", "delivery_lat", "delivery_lng",
-                  "driver_lat", "driver_lng", "items", "created_at"]
+                  "driver_lat", "driver_lng", "items", "created_at",
+                  "payment_method", "payment_status", "notes", "cancel_reason",
+                  "customer_status_text", "progress_step"]
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -165,7 +170,8 @@ class CheckoutSerializer(serializers.Serializer):
     delivery_lat = serializers.FloatField(required=False, allow_null=True)
     delivery_lng = serializers.FloatField(required=False, allow_null=True)
     payment_method = serializers.ChoiceField(
-        choices=[c[0] for c in Order.Payment.choices], default="cash")
+        choices=["cash", "momo", "om"], default="cash")
+    payment_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     promo_code = serializers.CharField(max_length=24, required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
 

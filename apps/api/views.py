@@ -17,6 +17,8 @@ from apps.restaurants.models import Restaurant, Category, Dish
 from apps.orders.models import Order, OrderItem, Review
 from apps.promotions.models import PromoCode, PromoCodeRedemption
 from apps.delivery.models import DriverProfile
+from apps.orders.services import CheckoutError, create_orders
+from apps.orders.workflow import (TransitionError, driver_advance, driver_claim, mission_offers)
 from .serializers import (
     RestaurantSerializer, RestaurantDetailSerializer, CategorySerializer,
     DishSerializer, OrderSerializer, ReviewSerializer, UserSerializer,
@@ -174,23 +176,13 @@ def nearby_orders(request):
     prof = DriverProfile.objects.filter(user=request.user).first()
     if not prof:
         return Response({"detail": "Profil livreur introuvable"}, status=403)
-    orders = Order.objects.filter(status=Order.Status.READY, driver__isnull=True)
     out = []
-    for o in orders.select_related("restaurant"):
-        d = None
-        if prof.current_lat is not None and prof.current_lng is not None \
-                and o.restaurant.lat is not None and o.restaurant.lng is not None:
-            d = haversine_km(prof.current_lat, prof.current_lng,
-                             o.restaurant.lat, o.restaurant.lng)
-            if d is None or d > prof.service_radius_km:
-                continue
+    for o in mission_offers(prof):
         data = OrderSerializer(o).data
-        data["distance_km"] = round(d, 1) if d else None
-        if d is not None and prof.current_lat is not None and prof.current_lng is not None:
-            route = road_route(
-                prof.current_lat, prof.current_lng,
-                o.restaurant.lat, o.restaurant.lng,
-            )
+        data["distance_km"] = o.distance_km
+        if o.distance_km is not None:
+            route = road_route(prof.current_lat, prof.current_lng,
+                               o.restaurant.lat, o.restaurant.lng)
             data["route_distance_km"] = route["distance_km"]
             data["route_duration_min"] = route["duration_min"]
             data["route_provider"] = route["provider"]
@@ -212,11 +204,11 @@ def api_driver_orders(request):
               .order_by("-created_at"))
     stats = orders.aggregate(
         total_orders=Count("id"),
-        total_amount=Sum("total"),
+        total_amount=Sum("delivery_fee"),
     )
     delivered = orders.filter(status=Order.Status.DELIVERED).aggregate(
         delivered_orders=Count("id"),
-        delivered_amount=Sum("total"),
+        delivered_amount=Sum("delivery_fee"),
     )
     active_orders = orders.filter(status__in=[
         Order.Status.PICKED_UP, Order.Status.ON_THE_WAY
@@ -242,61 +234,23 @@ def api_checkout(request):
     ser.is_valid(raise_exception=True)
     data = ser.validated_data
 
-    # Charger les plats disponibles
-    qty_by_dish = {it["dish_id"]: it["quantity"] for it in data["items"]}
-    dishes = {d.id: d for d in Dish.objects.filter(
-        id__in=qty_by_dish.keys(), is_available=True).select_related("restaurant")}
-    if not dishes:
-        return Response({"detail": "Aucun plat disponible dans le panier."}, status=400)
-
-    by_resto = defaultdict(list)
-    for did, dish in dishes.items():
-        by_resto[dish.restaurant_id].append((dish, qty_by_dish[did]))
-
-    promo_code_str = (data.get("promo_code") or "").strip().upper()
+    qty_by_dish = {}
+    for it in data["items"]:
+        qty_by_dish[it["dish_id"]] = qty_by_dish.get(it["dish_id"], 0) + it["quantity"]
+    dishes = Dish.objects.filter(id__in=qty_by_dish.keys()).select_related("restaurant")
+    lines = [(d, qty_by_dish[d.id]) for d in dishes]
     user = request.user
-    created = []
-
-    for rid, entries in by_resto.items():
-        resto = entries[0][0].restaurant
-        order = Order.objects.create(
-            customer=user, restaurant=resto,
-            delivery_address=data.get("delivery_address") or user.address or "",
+    try:
+        created = create_orders(
+            user, lines,
+            address=data.get("delivery_address") or user.address or "",
+            lat=data.get("delivery_lat") if data.get("delivery_lat") is not None else user.lat,
+            lng=data.get("delivery_lng") if data.get("delivery_lng") is not None else user.lng,
             payment_method=data.get("payment_method", "cash"),
-            delivery_fee=resto.delivery_fee,
-            delivery_lat=data.get("delivery_lat") if data.get("delivery_lat") is not None else user.lat,
-            delivery_lng=data.get("delivery_lng") if data.get("delivery_lng") is not None else user.lng,
-            notes=data.get("notes", ""),
-        )
-        for dish, qty in entries:
-            OrderItem.objects.create(
-                order=order, dish=dish, name=dish.name,
-                unit_price=dish.current_price, quantity=qty)
-            Dish.objects.filter(id=dish.id).update(orders_count=F("orders_count") + qty)
-        order.recompute_totals()
-
-        if promo_code_str:
-            code = PromoCode.objects.filter(code=promo_code_str, restaurant=resto).first()
-            if code and code.is_valid:
-                disc = code.discount_for(order.items_total)
-                order.discount = disc
-                order.promo_code = code.code
-                order.recompute_totals()
-                code.uses = F("uses") + 1
-                code.save(update_fields=["uses"])
-                PromoCodeRedemption.objects.create(
-                    promo_code=code, user=user, order=order, discount_amount=disc)
-                code.refresh_from_db()
-                code.influencer.recompute_score()
-
-        resto.orders_count = resto.orders.count()
-        resto.save(update_fields=["orders_count"])
-        created.append(order)
-
-        from apps.core.services import notify
-        notify(resto.owner, f"Nouvelle commande {order.number}",
-               f"{order.item_count} article(s) — {order.total} FCFA",
-               url="/resto/commandes/")
+            payment_phone=data.get("payment_phone") or user.phone or "",
+            notes=data.get("notes", ""), promo_code=data.get("promo_code", ""))
+    except CheckoutError as exc:
+        return Response({"detail": str(exc)}, status=400)
 
     return Response(
         {"orders": OrderSerializer(created, many=True).data,
@@ -356,8 +310,8 @@ def api_driver_position(request):
     prof.last_seen = timezone.now()
     prof.save(update_fields=["current_lat", "current_lng", "is_available", "last_seen"])
     # Répercute la position sur les commandes actives du livreur en temps réel.
-    active = [Order.Status.PICKED_UP, Order.Status.ON_THE_WAY]
-    updated = Order.objects.filter(driver=request.user, status__in=active).update(
+    updated = Order.objects.filter(driver=request.user).exclude(
+        status__in=[Order.Status.DELIVERED, Order.Status.CANCELLED]).update(
         driver_lat=prof.current_lat, driver_lng=prof.current_lng)
     return Response({
         "ok": True,
@@ -374,17 +328,10 @@ def api_driver_accept(request, number):
     if not prof:
         return Response({"detail": "Profil livreur introuvable."}, status=403)
     order = get_object_or_404(Order, number=number)
-    if order.driver_id:
-        return Response({"detail": "Course déjà prise."}, status=409)
-    order.driver = request.user
-    order.status = Order.Status.PICKED_UP
-    order.driver_lat = prof.current_lat
-    order.driver_lng = prof.current_lng
-    order.save(update_fields=["driver", "status", "driver_lat", "driver_lng"])
-    from apps.core.services import notify
-    notify(order.customer, f"Commande {order.number} prise en charge",
-           f"{request.user.display_name} récupère votre commande.",
-           url=f"/suivi/{order.number}/")
+    try:
+        order = driver_claim(order.id, request.user)
+    except TransitionError as exc:
+        return Response({"detail": str(exc)}, status=409)
     return Response(OrderSerializer(order).data)
 
 
@@ -407,23 +354,10 @@ def api_order_tracking(request, number):
 def api_driver_status(request, number):
     """Le livreur fait avancer le statut (picked_up -> on_the_way -> delivered)."""
     order = get_object_or_404(Order, number=number, driver=request.user)
-    new_status = request.data.get("status")
-    allowed = {Order.Status.ON_THE_WAY, Order.Status.DELIVERED}
-    if new_status not in allowed:
-        return Response({"detail": "Statut non autorisé."}, status=400)
-    order.status = new_status
-    if new_status == Order.Status.DELIVERED:
-        order.delivered_at = timezone.now()
-        prof = DriverProfile.objects.filter(user=request.user).first()
-        if prof:
-            DriverProfile.objects.filter(pk=prof.pk).update(
-                deliveries_count=F("deliveries_count") + 1)
-    order.save()
-    from apps.core.services import notify
-    notify(order.customer, f"Commande {order.number} — {order.status_label}",
-           "Votre commande arrive !" if new_status == Order.Status.ON_THE_WAY
-           else "Votre commande a été livrée. Bon appétit !",
-           url=f"/suivi/{order.number}/")
+    try:
+        order = driver_advance(order, request.user, request.data.get("status"))
+    except TransitionError as exc:
+        return Response({"detail": str(exc)}, status=400)
     return Response(OrderSerializer(order).data)
 
 

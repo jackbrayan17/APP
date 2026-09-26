@@ -83,6 +83,12 @@ def home(request):
         "active_category": active_category,
         "active_cat": cat_slug or "tous",
         "cart_count": _cart_count(request),
+        "active_order": (Order.objects.filter(customer=request.user)
+                         .exclude(status__in=[Order.Status.DELIVERED, Order.Status.CANCELLED])
+                         .select_related("restaurant").first()
+                         if request.user.is_authenticated else None),
+        "diet_count": Dish.objects.filter(is_diet=True, is_available=True,
+                                          restaurant__is_active=True).count(),
     }
     return render(request, "client/home.html", context)
 
@@ -516,3 +522,50 @@ def apple_app_site_association(request):
         },
     }
     return JsonResponse(data)
+
+
+# ---------- Dietetique ----------
+def dietetique(request):
+    """Espace dietetique : plats equilibres filtres par objectif nutritionnel."""
+    from apps.restaurants.models import DIET_GOALS
+    goal = request.GET.get("objectif", "")
+    sort = request.GET.get("tri", "kcal")
+    max_kcal = request.GET.get("max", "")
+    dishes = list(Dish.objects.filter(is_available=True, restaurant__is_active=True,
+                                      calories__isnull=False)
+                  .select_related("restaurant"))
+    diet_only = request.GET.get("tous") != "1"
+    if diet_only:
+        dishes = [d for d in dishes if d.is_diet]
+    if goal:
+        dishes = [d for d in dishes if goal in d.diet_goals]
+    if max_kcal.isdigit():
+        dishes = [d for d in dishes if d.calories <= int(max_kcal)]
+    keys = {
+        "kcal": lambda d: d.calories,
+        "proteines": lambda d: -(d.protein_grams or 0),
+        "fibres": lambda d: -(d.fiber_grams or 0),
+        "prix": lambda d: d.current_price,
+    }
+    dishes.sort(key=keys.get(sort, keys["kcal"]))
+    counts = {slug: 0 for slug, _, _ in DIET_GOALS}
+    for d in Dish.objects.filter(is_available=True, is_diet=True, calories__isnull=False):
+        for g in d.diet_goals:
+            counts[g] = counts.get(g, 0) + 1
+    goals = [{"slug": s, "label": l, "hint": h, "count": counts.get(s, 0)} for s, l, h in DIET_GOALS]
+    healthy_restos = Restaurant.objects.filter(is_active=True, categories__slug="healthy").distinct()
+    return render(request, "client/dietetique.html", {
+        "dishes": dishes, "goals": goals, "goal": goal, "sort": sort, "max_kcal": max_kcal,
+        "diet_only": diet_only, "healthy_restos": healthy_restos,
+        "cart_count": _cart_count(request),
+    })
+
+
+def photo_credits(request):
+    """Credits des photos de plats (licences Creative Commons)."""
+    path = settings.MEDIA_ROOT / "dishes" / "demo" / "CREDITS.json"
+    try:
+        credits = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        credits = {}
+    return render(request, "legal/credits.html", {"credits": sorted(credits.items())})

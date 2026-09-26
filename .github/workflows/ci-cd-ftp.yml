@@ -9,7 +9,7 @@ on:
 env:
   EMAIL_RECIPIENT: jackbrayan1707@gmail.com
   MAIL_FROM: "ONE EAT CI <noreply@oneeat.cm>"
-  FTP_REMOTE_DIR: "/"
+  CPANEL_REMOTE_DIR: "oneeat"
   REMOTE_APP_DIR: "/home/ch6973134ef1cfd/oneeat"
 
 jobs:
@@ -43,30 +43,98 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy website via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: ${{ secrets.FTP_PORT }}
-          local-dir: ./
-          server-dir: ${{ env.FTP_REMOTE_DIR }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .claude/**
-            .kilo/**
-            .sixth/**
-            .github/**
-            mobile/**
-            db.sqlite3
-            **/__pycache__/**
-            **/*.pyc
-            *.log
-            media.zip
-            tmp/**
+      - name: Build release archive
+        run: |
+          echo "${{ github.sha }}" > RELEASE
+          zip -rq oneeat-release.zip . \
+            -x ".git/*" ".git/**" ".github/*" ".github/**" \
+               ".claude/*" ".claude/**" ".kilo/*" ".kilo/**" ".sixth/*" ".sixth/**" \
+               "mobile/*" "mobile/**" "db.sqlite3" "*.log" "media.zip" \
+               "tmp/*" "tmp/**" "*/__pycache__/*" "*/__pycache__/**" "*.pyc"
+
+      - name: Deploy archive via cPanel API
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          import urllib.parse
+          import requests
+
+          host = os.environ["CPANEL_HOST"]
+          user = os.environ["CPANEL_USER"]
+          token = os.environ["CPANEL_API_TOKEN"]
+          remote_dir = os.environ["CPANEL_REMOTE_DIR"]
+          archive = "oneeat-release.zip"
+          auth = {"Authorization": f"cpanel {user}:{token}"}
+          base = f"https://{host}:2083"
+
+          with open(archive, "rb") as fh:
+              response = requests.post(
+                  f"{base}/execute/Fileman/upload_files",
+                  headers=auth,
+                  data={"dir": f"/home/{user}"},
+                  files={"file-1": ("oneeat-release.zip", fh, "application/zip")},
+                  timeout=180,
+              )
+          response.raise_for_status()
+          upload = response.json()
+          if upload.get("status") != 1:
+              print(upload)
+              sys.exit("cPanel upload failed")
+
+          params = {
+              "cpanel_jsonapi_user": user,
+              "cpanel_jsonapi_apiversion": "2",
+              "cpanel_jsonapi_module": "Fileman",
+              "cpanel_jsonapi_func": "fileop",
+              "op": "extract",
+              "sourcefiles": "oneeat-release.zip",
+              "destfiles": remote_dir,
+              "doubledecode": "1",
+          }
+          extract = requests.get(
+              f"{base}/json-api/cpanel?{urllib.parse.urlencode(params)}",
+              headers=auth,
+              timeout=180,
+          )
+          extract.raise_for_status()
+          data = extract.json()
+          result = data.get("cpanelresult", {}).get("event", {}).get("result")
+          if result != 1:
+              print(data)
+              sys.exit("cPanel archive extraction failed")
+          print("cPanel archive uploaded and extracted.")
+
+          # Redemarrage Passenger : migrations + catalogue appliques au boot (oneeat/release.py)
+          restart = requests.post(
+              f"{base}/execute/Fileman/save_file_content",
+              headers=auth,
+              data={"dir": f"/home/{user}/{remote_dir}/tmp", "file": "restart.txt",
+                    "content": os.environ.get("GITHUB_SHA", "restart")},
+              timeout=60,
+          )
+          restart.raise_for_status()
+          if restart.json().get("status") != 1:
+              print(restart.json())
+              sys.exit("Passenger restart request failed")
+          print("Passenger restart requested.")
+          PY
+
+      - name: Verify the live site
+        run: |
+          for i in 1 2 3 4 5 6 7 8; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://oneeat.cm/dietetique/ || true)
+            echo "Attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "Live site did not answer 200 on /dietetique/"
+          exit 1
 
       - name: Run remote Django maintenance commands
         if: ${{ env.SSH_HOST != '' && env.SSH_USERNAME != '' && (env.SSH_PRIVATE_KEY != '' || env.SSH_PASSWORD != '') }}
@@ -111,30 +179,71 @@ jobs:
         with:
           ref: ${{ github.event.before }}
 
-      - name: Deploy previous stable commit via FTP/FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: ${{ secrets.FTP_PORT }}
-          local-dir: ./
-          server-dir: ${{ env.FTP_REMOTE_DIR }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .claude/**
-            .kilo/**
-            .sixth/**
-            .github/**
-            mobile/**
-            db.sqlite3
-            **/__pycache__/**
-            **/*.pyc
-            *.log
-            media.zip
-            tmp/**
+      - name: Build rollback archive
+        run: |
+          zip -rq oneeat-release.zip . \
+            -x ".git/*" ".git/**" ".github/*" ".github/**" \
+               ".claude/*" ".claude/**" ".kilo/*" ".kilo/**" ".sixth/*" ".sixth/**" \
+               "mobile/*" "mobile/**" "db.sqlite3" "*.log" "media.zip" \
+               "tmp/*" "tmp/**" "*/__pycache__/*" "*/__pycache__/**" "*.pyc"
+
+      - name: Deploy previous stable commit via cPanel API
+        env:
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST }}
+          CPANEL_USER: ${{ secrets.CPANEL_USER }}
+          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          import urllib.parse
+          import requests
+
+          host = os.environ["CPANEL_HOST"]
+          user = os.environ["CPANEL_USER"]
+          token = os.environ["CPANEL_API_TOKEN"]
+          remote_dir = os.environ["CPANEL_REMOTE_DIR"]
+          auth = {"Authorization": f"cpanel {user}:{token}"}
+          base = f"https://{host}:2083"
+
+          with open("oneeat-release.zip", "rb") as fh:
+              response = requests.post(
+                  f"{base}/execute/Fileman/upload_files",
+                  headers=auth,
+                  data={"dir": f"/home/{user}"},
+                  files={"file-1": ("oneeat-release.zip", fh, "application/zip")},
+                  timeout=180,
+              )
+          response.raise_for_status()
+          upload = response.json()
+          if upload.get("status") != 1:
+              print(upload)
+              sys.exit("cPanel rollback upload failed")
+
+          params = {
+              "cpanel_jsonapi_user": user,
+              "cpanel_jsonapi_apiversion": "2",
+              "cpanel_jsonapi_module": "Fileman",
+              "cpanel_jsonapi_func": "fileop",
+              "op": "extract",
+              "sourcefiles": "oneeat-release.zip",
+              "destfiles": remote_dir,
+              "doubledecode": "1",
+          }
+          extract = requests.get(
+              f"{base}/json-api/cpanel?{urllib.parse.urlencode(params)}",
+              headers=auth,
+              timeout=180,
+          )
+          extract.raise_for_status()
+          data = extract.json()
+          result = data.get("cpanelresult", {}).get("event", {}).get("result")
+          if result != 1:
+              print(data)
+              sys.exit("cPanel rollback extraction failed")
+          print("Rollback archive uploaded and extracted.")
+          PY
 
   notify:
     name: Send status email

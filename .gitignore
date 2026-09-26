@@ -23,3 +23,7 @@ ENV/
 
 # Mobile app files not deployed by GitHub Actions
 /mobile/
+
+# Marqueur de release ecrit par la CI
+RELEASE
+tmp/

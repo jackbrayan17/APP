@@ -59,25 +59,53 @@
       <p class="mt-2 text-sm leading-6 text-gray-600">{{ dish.description|default:"Description bientôt disponible." }}</p>
     </section>
 
-    {% if dish.is_diet or dish.calories or dish.protein_grams or dish.dietary_note or dish.dietary_tag_list %}
-    <section class="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+    {% if dish.calories %}
+    <section class="mt-6 rounded-3xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white p-4" aria-labelledby="nutri-title">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <p class="text-xs font-bold uppercase tracking-wide text-emerald-700">Partie diététique</p>
-          <h2 class="mt-1 font-extrabold text-gray-900">Repères nutritionnels</h2>
+          <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Espace diététique</p>
+          <h2 id="nutri-title" class="mt-0.5 text-lg font-extrabold text-gray-900">Valeurs nutritionnelles</h2>
+          <p class="text-xs text-gray-500">Estimation par portion servie</p>
         </div>
-        {% if dish.is_diet %}<span class="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700">Choix équilibré</span>{% endif %}
+        <div class="flex flex-col items-center">
+          {% include "client/_nutri_grade.html" with grade=dish.nutri_grade big=1 %}
+          <span class="mt-1 text-[10px] font-semibold text-gray-500">Indice</span>
+        </div>
       </div>
-      <div class="mt-3 grid grid-cols-2 gap-2">
-        {% if dish.calories %}<div class="rounded-xl bg-white p-3"><p class="text-lg font-extrabold text-gray-900">{{ dish.calories }}</p><p class="text-xs text-gray-500">kcal estimées</p></div>{% endif %}
-        {% if dish.protein_grams %}<div class="rounded-xl bg-white p-3"><p class="text-lg font-extrabold text-gray-900">{{ dish.protein_grams }}g</p><p class="text-xs text-gray-500">protéines</p></div>{% endif %}
+
+      <div class="mt-4 flex items-end justify-between">
+        <p><span class="text-4xl font-black text-gray-900 tabular">{{ dish.calories }}</span> <span class="text-sm font-bold text-gray-500">kcal</span></p>
+        <p class="text-right text-xs text-gray-500"><span class="block text-base font-extrabold text-gray-900 tabular">{{ dish.daily_value_percent }} %</span>des apports / jour*</p>
       </div>
-      {% if dish.dietary_tag_list %}
-      <div class="mt-3 flex flex-wrap gap-1.5">
-        {% for tag in dish.dietary_tag_list %}<span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-700">{{ tag }}</span>{% endfor %}
+      <div class="mt-2 h-2 rounded-full bg-emerald-100 overflow-hidden"><div class="h-full rounded-full bg-emerald-500" style="width:{{ dish.daily_value_percent }}%"></div></div>
+
+      {% if dish.macros %}
+      <div class="mt-4 flex h-3 w-full overflow-hidden rounded-full" role="img" aria-label="Répartition : protéines {{ dish.macros.protein }} %, glucides {{ dish.macros.carbs }} %, lipides {{ dish.macros.fat }} %">
+        <div class="bg-sky-500" style="width:{{ dish.macros.protein }}%"></div>
+        <div class="bg-amber-400" style="width:{{ dish.macros.carbs }}%"></div>
+        <div class="bg-rose-400" style="width:{{ dish.macros.fat }}%"></div>
+      </div>
+      <div class="mt-3 grid grid-cols-4 gap-2 text-center">
+        <div class="rounded-xl bg-white p-2 shadow-sm"><p class="font-extrabold text-gray-900 tabular">{{ dish.protein_grams }} g</p><p class="text-[10px] font-semibold text-sky-600">Protéines</p></div>
+        <div class="rounded-xl bg-white p-2 shadow-sm"><p class="font-extrabold text-gray-900 tabular">{{ dish.carbs_grams }} g</p><p class="text-[10px] font-semibold text-amber-600">Glucides</p></div>
+        <div class="rounded-xl bg-white p-2 shadow-sm"><p class="font-extrabold text-gray-900 tabular">{{ dish.fat_grams }} g</p><p class="text-[10px] font-semibold text-rose-500">Lipides</p></div>
+        <div class="rounded-xl bg-white p-2 shadow-sm"><p class="font-extrabold text-gray-900 tabular">{{ dish.fiber_grams|default:"–" }}{% if dish.fiber_grams %} g{% endif %}</p><p class="text-[10px] font-semibold text-emerald-600">Fibres</p></div>
       </div>
       {% endif %}
-      {% if dish.dietary_note %}<p class="mt-3 text-sm leading-6 text-gray-700">{{ dish.dietary_note }}</p>{% endif %}
+
+      {% if dish.dietary_tag_list %}
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {% for tag in dish.dietary_tag_list %}<span class="rounded-full bg-white border border-emerald-100 px-2.5 py-1 text-xs font-semibold text-gray-700">{{ tag }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      {% if dish.dietary_note %}
+      <div class="mt-3 flex gap-2 rounded-2xl bg-white p-3 text-sm leading-6 text-gray-700 shadow-sm">
+        <span class="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-3.8 10.65c.5.4.8 1 .8 1.64V15h6v-.71c0-.64.3-1.24.8-1.64A6 6 0 0010 2zM8 17h4v1a1 1 0 01-1 1H9a1 1 0 01-1-1v-1z"/></svg></span>
+        <p><b>Conseil nutrition :</b> {{ dish.dietary_note }}</p>
+      </div>
+      {% endif %}
+      <p class="mt-3 text-[11px] leading-4 text-gray-400">*Base 2 000 kcal/jour pour un adulte. Valeurs indicatives, ne remplacent pas l'avis d'un professionnel de santé. <a href="{% url 'core:dietetique' %}" class="font-bold text-emerald-700">Voir tous les plats diététiques →</a></p>
     </section>
     {% endif %}
 
@@ -96,6 +124,8 @@
       </div>
     </section>
 
+    {% if dish.image and '/demo/' in dish.image.name %}<p class="mt-4 text-[11px] text-gray-400">Photo d'illustration sous licence Creative Commons · <a href="{% url 'core:photo_credits' %}" class="underline">crédits</a></p>{% endif %}
+
     {% if related %}
     <section class="mt-7">
       <h2 class="font-extrabold text-gray-900 mb-2">Autres plats du restaurant</h2>
@@ -109,9 +139,15 @@
   </div>
 
   <div class="fixed bottom-[76px] left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/95 backdrop-blur border-t border-gray-100 p-4">
-    <button data-add-cart="{{ dish.id }}" class="w-full py-3 rounded-2xl bg-brand text-white font-extrabold active:scale-[.99] transition">
-      Ajouter au panier
-    </button>
+    {% if not resto.is_open_now %}<p class="mb-2 text-center text-xs font-semibold text-amber-600">{{ resto.opening_status_label }} — vous pourrez commander à l'ouverture</p>{% endif %}
+    <div class="flex gap-2">
+      <button data-add-cart="{{ dish.id }}" class="flex-1 py-3.5 rounded-2xl bg-brand text-white font-extrabold active:scale-[.99] transition shadow-lg shadow-brand/25">
+        Ajouter · {{ dish.current_price|intcomma }} {{ CURRENCY }}
+      </button>
+      <a href="{% url 'orders:cart' %}" class="w-14 rounded-2xl bg-gray-900 text-white flex items-center justify-center" aria-label="Voir le panier">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+      </a>
+    </div>
   </div>
 </div>
 {% endblock %}
