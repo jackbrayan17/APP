@@ -66,6 +66,8 @@ class Command(BaseCommand):
             resto.is_featured = data["featured"]
             resto.is_pro, resto.is_premium = data.get("pro", False), data.get("premium", False)
             resto.brand_color = data.get("brand", resto.brand_color)
+            if not resto.rating_count:
+                resto.rating = data["rating"]  # note de lancement tant qu'aucun avis reel
             if resto.lat is None:
                 resto.lat, resto.lng = lat, lng
             if (opts["hours"] or not resto.pk or not resto.opening_hours
