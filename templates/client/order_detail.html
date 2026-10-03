@@ -2,9 +2,9 @@
 {% load humanize %}
 {% block title %}Commande {{ order.number }} — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-4 pb-8">
+<div class="px-4 pt-4 pb-8 md:mx-auto md:max-w-3xl md:px-6 md:pt-8">
   <div class="flex items-center gap-3">
-    <a href="{% url 'orders:list' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center" aria-label="Retour">
+    <a href="{% url 'orders:list' %}" data-oe-back class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center" aria-label="Retour">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg></a>
     <div class="min-w-0 flex-1">
       <h1 class="text-lg font-extrabold text-gray-900 truncate">{{ order.restaurant.name }}</h1>
@@ -31,6 +31,13 @@
       </li>
       {% endfor %}
     </ol>
+    {% endif %}
+    {% if order.status == 'arrived' %}
+    <div class="mt-4 rounded-2xl bg-white/10 p-4 text-center">
+      <p class="text-xs font-bold uppercase tracking-wider text-white/70">Code de livraison</p>
+      <p class="mt-1 text-3xl font-extrabold tracking-[0.4em] tabular">{{ order.delivery_code }}</p>
+      <p class="mt-1 text-xs text-white/70">Donnez ce code au livreur ou scannez son QR code.</p>
+    </div>
     {% endif %}
     {% if order.driver and order.is_active %}
     <a href="{% url 'delivery:order_map' order.number %}" class="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-brand py-3.5 text-sm font-bold text-white">
@@ -81,6 +88,9 @@
   </section>
 
   <div class="mt-5 space-y-2">
+    {% if order.can_validate %}
+    <a href="{% url 'orders:validate' order.number %}" class="block text-center py-3.5 rounded-2xl bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-600/25">Valider la livraison avec le code</a>
+    {% endif %}
     {% if order.can_review %}
     <a href="{% url 'orders:review' order.number %}" class="block text-center py-3.5 rounded-2xl bg-brand text-white font-bold shadow-lg shadow-brand/25">Noter le restaurant et le livreur</a>
     {% endif %}
@@ -90,8 +100,8 @@
     </form>
     {% endif %}
     {% if order.is_cancellable_by_customer %}
-    <form method="post" action="{% url 'orders:cancel' order.number %}" onsubmit="return confirm('Annuler cette commande ?')">{% csrf_token %}
-      <button class="w-full py-3 rounded-2xl border-2 border-red-100 text-red-600 font-bold text-sm">Annuler la commande</button>
+    <form method="post" action="{% url 'orders:cancel' order.number %}" onsubmit="return confirm('Abandonner cette commande ?')">{% csrf_token %}
+      <button class="w-full py-3 rounded-2xl border-2 border-red-100 text-red-600 font-bold text-sm">Abandonner la commande</button>
     </form>
     {% endif %}
     <button type="button" data-share-title="Suivez ma commande ONE EAT" data-share-url="{% url 'orders:share' order.share_token %}" class="w-full py-3 rounded-2xl text-gray-600 font-bold text-sm">Partager le suivi</button>

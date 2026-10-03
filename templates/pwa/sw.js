@@ -1,6 +1,6 @@
 /* ONE EAT — Service Worker (PWA, compatible Android & iOS 16.4+) */
 /* v2 : nouvelles icônes de marque -> bump de version pour purger l'ancien cache. */
-const CACHE = "oneeat-v3";
+const CACHE = "oneeat-v4";
 const OFFLINE_URL = "/offline/";
 const PRECACHE = [
   "/", "/offline/", "/static/js/app.js", "/manifest.webmanifest",
@@ -26,6 +26,9 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
+  // Ignore les requêtes d'extensions navigateur et les autres origines (non cachables).
+  if (url.protocol !== "http:" && url.protocol !== "https:") return;
+  if (url.origin !== self.location.origin) return;
 
   // Network-first pour les pages HTML, fallback offline
   if (req.mode === "navigate") {
@@ -41,7 +44,7 @@ self.addEventListener("fetch", (event) => {
       caches.match(req).then((cached) =>
         cached || fetch(req).then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
           return res;
         }).catch(() => cached)
       )

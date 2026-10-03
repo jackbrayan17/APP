@@ -11,8 +11,10 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.delivery.models import DriverProfile
-from apps.restaurants.catalog import CATEGORIES, DRIVERS, HOODS, RESTAURANTS
-from apps.restaurants.models import Category, Dish, MenuSection, Restaurant, default_opening_hours
+from apps.restaurants.catalog import (DISH_OPTIONS, DRIVERS, HOODS, RESTAURANTS, SECTION_CATEGORY,
+                                      SECTOR_CATEGORIES, SECTORS)
+from apps.restaurants.models import (Category, Dish, DishOption, MenuSection, Restaurant, Sector,
+                                     default_opening_hours)
 
 User = get_user_model()
 DEMO_IMAGE_DIR = "dishes/demo"
@@ -32,14 +34,21 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **opts):
-        cats = {}
-        for name, emoji, order in CATEGORIES:
-            c, _ = Category.objects.get_or_create(name=name, defaults={"emoji": emoji, "order": order})
-            c.emoji, c.order = emoji, order
-            c.is_nav = name in ("Local", "Healthy", "Fast Food", "Grillades")
-            c.save()
-            cats[name] = c
-        Category.objects.filter(name="Café").update(order=9, is_nav=False)
+        sectors = {}
+        for name, icon, order in SECTORS:
+            sec, _ = Sector.objects.get_or_create(name=name, defaults={"order": order})
+            sec.icon, sec.order = icon, order
+            sec.save()
+            sectors[name] = sec
+
+        cats = {}  # (secteur, categorie) -> Category
+        for sec_name, names in SECTOR_CATEGORIES.items():
+            for order, name in enumerate(names):
+                cat, _ = Category.objects.get_or_create(sector=sectors[sec_name], name=name,
+                                                        defaults={"order": order})
+                cat.order = order
+                cat.save()
+                cats[(sec_name, name)] = cat
 
         created_restos = created_dishes = updated_dishes = 0
         for i, data in enumerate(RESTAURANTS):
@@ -63,6 +72,7 @@ class Command(BaseCommand):
             resto.neighborhood, resto.address = data["hood"], f"{data['hood']}, Douala"
             resto.delivery_fee = data["fee"]
             resto.delivery_time_min, resto.delivery_time_max = data["tmin"], data["tmax"]
+            resto.sector = sectors[data["sector"]]
             resto.is_featured = data["featured"]
             resto.is_pro, resto.is_premium = data.get("pro", False), data.get("premium", False)
             resto.brand_color = data.get("brand", resto.brand_color)
@@ -74,7 +84,6 @@ class Command(BaseCommand):
                     or resto.opening_hours == default_opening_hours()):
                 resto.opening_hours = data["hours"]
             resto.save()
-            resto.categories.add(*[cats[c] for c in data["cats"]])
 
             hero = None
             for s_order, (sec_name, dishes) in enumerate(data["sections"].items()):
@@ -89,13 +98,18 @@ class Command(BaseCommand):
                         created_dishes += 1
                     dish.section, dish.description = section, desc
                     dish.price, dish.prep_time, dish.is_popular = price, prep, popular
-                    dish.category = cats[data["cats"][0]]
+                    dish.category = cats.get((data["sector"], SECTION_CATEGORY.get(sec_name, "")))
                     (dish.is_diet, dish.calories, dish.protein_grams, dish.carbs_grams,
                      dish.fat_grams, dish.fiber_grams, dish.dietary_tags, dish.dietary_note) = nutri
                     img = _image_path(image)
                     if img:
                         dish.image = img
                     dish.save()
+                    for g_order, (group, opt_name, opt_price) in enumerate(DISH_OPTIONS.get(name, [])):
+                        DishOption.objects.update_or_create(
+                            dish=dish, name=opt_name,
+                            defaults={"group": group, "price": opt_price, "order": g_order,
+                                      "is_available": True})
                     if popular and img and not hero:
                         hero = img
             if hero:
@@ -120,6 +134,8 @@ class Command(BaseCommand):
             prof.phone = prof.phone or user.phone
             prof.save(update_fields=["vehicle", "phone"])
 
+        # Anciennes categories globales sans secteur : retirees si aucun plat ne les utilise
+        Category.objects.filter(sector__isnull=True, dishes__isnull=True).delete()
         self.stdout.write(self.style.SUCCESS(
             f"Catalogue synchronise : {created_restos} restaurant(s) et {created_dishes} plat(s) crees, "
             f"{updated_dishes} plat(s) mis a jour."))

@@ -10,19 +10,19 @@
   {% endfor %}
 </div>
 
-<div class="mt-4 space-y-3">
+<div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
   {% for o in orders %}
   <article class="rounded-3xl border {% if o.status == 'pending' %}border-brand/40 bg-brand-50/30{% else %}border-gray-100 bg-white{% endif %} p-4 shadow-sm" x-data="{ refusing:false }">
     <div class="flex items-start justify-between gap-3">
-      <div>
-        <p class="font-extrabold text-gray-900 tabular">{{ o.number }}</p>
-        <p class="text-xs text-gray-500">{{ o.customer.display_name }} · {{ o.created_at|date:"H:i" }} · il y a {{ o.created_at|timesince }}</p>
+      <div class="min-w-0">
+        <p class="font-extrabold text-gray-900 tabular break-all">{{ o.number }}</p>
+        <p class="text-xs text-gray-500 break-words">{{ o.customer.display_name }} · {{ o.created_at|date:"H:i" }} · il y a {{ o.created_at|timesince }}</p>
       </div>
       {% include "client/_status_badge.html" with status=o.status label=o.status_label %}
     </div>
 
     <ul class="mt-3 space-y-1 rounded-2xl bg-gray-50 p-3 text-sm">
-      {% for it in o.items.all %}<li class="flex justify-between"><span><b class="tabular">{{ it.quantity }}×</b> {{ it.name }}</span><span class="text-gray-500 tabular">{{ it.line_total|intcomma }}</span></li>{% endfor %}
+      {% for it in o.items.all %}<li class="flex justify-between gap-3"><span class="min-w-0 break-words"><b class="tabular">{{ it.quantity }}×</b> {{ it.name }}</span><span class="flex-shrink-0 text-gray-500 tabular">{{ it.line_total|intcomma }}</span></li>{% endfor %}
     </ul>
     {% if o.notes %}<p class="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800"><b>Instructions :</b> {{ o.notes }}</p>{% endif %}
 
@@ -61,7 +61,7 @@
     {% endif %}
   </article>
   {% empty %}
-  <div class="rounded-3xl bg-gray-50 px-6 py-12 text-center">
+  <div class="rounded-3xl bg-gray-50 px-6 py-12 text-center md:col-span-2 xl:col-span-3">
     <p class="font-bold text-gray-800">{% if tab == 'new' %}Aucune nouvelle commande{% else %}Rien ici pour l'instant{% endif %}</p>
     <p class="mt-1 text-sm text-gray-500">{% if tab == 'new' %}Gardez cette page ouverte : une alerte sonore retentit à chaque commande.{% endif %}</p>
   </div>

@@ -15,7 +15,7 @@
       <option value="Bonapriso">Bonapriso</option><option value="Bali">Bali</option><option value="Deido">Deido</option>
     </select>
     <input name="address" placeholder="Adresse" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    <input name="phone" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+    <input name="phone" placeholder="Téléphone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" pattern="\+?[0-9 .\-()]{8,20}" title="8 à 15 chiffres, le + est accepté" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
     <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold">Créer mon restaurant</button>
   </form>
 </div>

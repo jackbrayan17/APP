@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Mon profil — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-5 pb-4" x-data="{ edit:false }">
+<div class="px-4 pt-5 pb-4 md:mx-auto md:max-w-3xl md:px-6 md:pt-8" x-data="{ edit:false }">
 
   <!-- En-tête -->
   <div class="flex items-center gap-4">
@@ -42,7 +42,7 @@
         <input name="first_name" value="{{ user.first_name }}" placeholder="Prénom" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
         <input name="last_name" value="{{ user.last_name }}" placeholder="Nom" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
       </div>
-      <input name="phone" value="{{ user.phone }}" placeholder="Téléphone" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <input name="phone" value="{{ user.phone }}" placeholder="Téléphone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" pattern="\+?[0-9 .\-()]{8,20}" title="8 à 15 chiffres, le + est accepté" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
       <input name="address" x-ref="addr" value="{{ user.address }}" placeholder="Adresse de livraison" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand/30">
       <button type="button" @click="locate" class="w-full py-3 rounded-xl border-2 border-brand text-brand font-bold text-sm">📍 Utiliser ma position actuelle</button>
       <button type="submit" class="w-full py-3.5 rounded-xl bg-brand text-white font-bold">Enregistrer</button>

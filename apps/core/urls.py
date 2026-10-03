@@ -14,6 +14,7 @@ urlpatterns = [
     path("aide/", views.help_center, name="help"),
     path("legal/<str:page>/", views.legal_page, name="legal"),
     path("tableau-admin/", views.admin_dashboard, name="admin_dashboard"),
+    path("design/", views.design_preview, name="design"),
     # PWA
     path("manifest.webmanifest", views.manifest, name="manifest"),
     path("sw.js", views.service_worker, name="service_worker"),

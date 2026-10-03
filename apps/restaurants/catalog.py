@@ -14,16 +14,41 @@ HOODS = {
     "Deido": (4.0650, 9.7100),
 }
 
-CATEGORIES = [
-    # nom, emoji, ordre
-    ("Tous", "🍽️", 0),
-    ("Local", "🍲", 1),
-    ("Healthy", "🥗", 2),
-    ("Fast Food", "🍔", 3),
-    ("Grillades", "🔥", 4),
-    ("Snacks", "🥪", 5),
-    ("Boissons", "🥤", 6),
+SECTORS = [
+    # nom du secteur, icone (static/icons/categories), ordre
+    ("Restaurant Camerounais", "local", 1),
+    ("Restaurant Italien", "fast-food", 2),
+    ("Fast Food", "fast-food", 3),
+    ("Grillades", "grillades", 4),
+    ("Diététique", "healthy", 5),
 ]
+
+# Categories de plats, rangees dans un secteur (ex : Restaurant Italien > Pizza, Pâtes, Boissons)
+SECTOR_CATEGORIES = {
+    "Restaurant Camerounais": ["Plats traditionnels", "Riz & accompagnements", "Snacks", "Boissons"],
+    "Restaurant Italien": ["Pizza", "Pâtes", "Boissons"],
+    "Fast Food": ["Burgers", "Frites & accompagnements", "Snacks", "Boissons"],
+    "Grillades": ["Viandes grillées", "Accompagnements", "Boissons"],
+    "Diététique": ["Bowls & plats complets", "Salades", "Jus & fruits", "Boissons"],
+}
+
+# Section du menu (onglet) -> categorie du plat
+SECTION_CATEGORY = {
+    "Cuisine Camerounaise": "Plats traditionnels",
+    "Plats du jour": "Plats traditionnels",
+    "Riz & Accompagnements": "Riz & accompagnements",
+    "Snacks": "Snacks",
+    "Grillades": "Viandes grillées",
+    "Viandes Premium": "Viandes grillées",
+    "Accompagnements": "Accompagnements",
+    "Pizzas": "Pizza",
+    "Burgers": "Burgers",
+    "Sides": "Frites & accompagnements",
+    "Bowls & plats complets": "Bowls & plats complets",
+    "Salades": "Salades",
+    "Jus & fruits": "Jus & fruits",
+    "Boissons": "Boissons",
+}
 
 ALL_DAY = {str(d): ["00:00", "23:59"] for d in range(7)}
 LUNCH_DINNER = {str(d): ["09:00", "23:30"] for d in range(7)}
@@ -35,7 +60,7 @@ RESTAURANTS = [
         "name": "Le Ndolé d'Or", "tagline": "Cuisine Locale", "hood": "Bonanjo",
         "bio": "Spécialiste du Ndolé depuis 1998. Recette traditionnelle camerounaise.",
         "rating": 4.9, "fee": 800, "tmin": 25, "tmax": 40, "featured": True, "pro": True,
-        "cats": ["Local", "Healthy"], "hours": LUNCH_DINNER, "brand": "#FF6B1A",
+        "sector": "Restaurant Camerounais", "hours": LUNCH_DINNER, "brand": "#FF6B1A",
         "sections": {
             "Cuisine Camerounaise": [
                 ("Ndolé Spécial + Riz", "Notre recette signature depuis 1998. Ndolé aux crevettes géantes et bœuf, servi avec riz blanc parfumé.", 4000, 35, True, "ndole-special-riz",
@@ -61,7 +86,7 @@ RESTAURANTS = [
         "name": "Chicken & Grill Akwa", "tagline": "Premium", "hood": "Akwa",
         "bio": "Les meilleures grillades de Douala. Poulet braisé, poisson et brochettes. Ouvert 24h/24.",
         "rating": 4.8, "fee": 500, "tmin": 15, "tmax": 25, "featured": True, "pro": True, "premium": True,
-        "cats": ["Grillades", "Fast Food"], "hours": ALL_DAY, "brand": "#E4572E",
+        "sector": "Grillades", "hours": ALL_DAY, "brand": "#E4572E",
         "sections": {
             "Grillades": [
                 ("Poulet braisé entier", "Poulet mariné 24h, braisé au charbon. Servi avec frites et piment.", 6000, 25, True, "poulet-braise-entier",
@@ -83,7 +108,7 @@ RESTAURANTS = [
         "name": "Mama Africa Kitchen", "tagline": "Cuisine Locale", "hood": "Bonapriso",
         "bio": "Cuisine camerounaise authentique. Ndolé, Eru, Koki et plus.",
         "rating": 4.7, "fee": 700, "tmin": 20, "tmax": 35, "featured": False, "pro": False,
-        "cats": ["Local"], "hours": LUNCH_DINNER, "brand": "#C2410C",
+        "sector": "Restaurant Camerounais", "hours": LUNCH_DINNER, "brand": "#C2410C",
         "sections": {
             "Plats du jour": [
                 ("Eru + Water Fufu", "Eru aux feuilles fraîches, viande et poisson fumé. Servi avec water fufu.", 3000, 30, True, "eru-water-fufu",
@@ -99,7 +124,7 @@ RESTAURANTS = [
         "name": "Grill Master Bonapriso", "tagline": "Premium", "hood": "Bonapriso",
         "bio": "Viandes premium grillées au charbon. Côtes de bœuf, agneau et plus.",
         "rating": 4.7, "fee": 700, "tmin": 20, "tmax": 30, "featured": False, "pro": True, "premium": True,
-        "cats": ["Grillades"], "hours": LUNCH_DINNER, "brand": "#7C2D12",
+        "sector": "Grillades", "hours": LUNCH_DINNER, "brand": "#7C2D12",
         "sections": {
             "Viandes Premium": [
                 ("Côtes de bœuf (500g)", "Côte de bœuf maturée, grillée au charbon de bois, purée maison.", 9000, 30, True, "cotes-de-buf-500g",
@@ -112,10 +137,10 @@ RESTAURANTS = [
         },
     },
     {
-        "name": "Pizza Roma Akwa", "tagline": "Fast Food", "hood": "Akwa",
+        "name": "Pizza Roma Akwa", "tagline": "Cuisine Italienne", "hood": "Akwa",
         "bio": "Pizzas au feu de bois, pâtes fraîches et tiramisu maison.",
         "rating": 4.6, "fee": 600, "tmin": 20, "tmax": 30, "featured": False, "pro": False,
-        "cats": ["Fast Food"], "hours": LUNCH_DINNER, "brand": "#B91C1C",
+        "sector": "Restaurant Italien", "hours": LUNCH_DINNER, "brand": "#B91C1C",
         "sections": {
             "Pizzas": [
                 ("Pizza Margherita", "Tomate, mozzarella, basilic frais.", 5000, 20, True, "pizza-margherita",
@@ -131,7 +156,7 @@ RESTAURANTS = [
         "name": "Burger House Bali", "tagline": "Fast Food", "hood": "Bali",
         "bio": "Burgers gourmets, frites maison et milkshakes. Ouvert tard le soir.",
         "rating": 4.5, "fee": 500, "tmin": 15, "tmax": 25, "featured": False, "pro": False,
-        "cats": ["Fast Food", "Snacks"], "hours": LATE_NIGHT, "brand": "#EA580C",
+        "sector": "Fast Food", "hours": LATE_NIGHT, "brand": "#EA580C",
         "sections": {
             "Burgers": [
                 ("Classic Beef Burger", "Steak haché, cheddar, salade, tomate, oignon rouge, sauce maison.", 4000, 18, True, "classic-beef-burger",
@@ -153,7 +178,7 @@ RESTAURANTS = [
         "name": "Green Bowl Bonapriso", "tagline": "Diététique", "hood": "Bonapriso",
         "bio": "Cuisine diététique conçue avec une nutritionniste : bowls, salades complètes, vapeur et jus frais. Calories et macros affichées pour chaque plat.",
         "rating": 4.8, "fee": 600, "tmin": 20, "tmax": 30, "featured": True, "pro": True,
-        "cats": ["Healthy", "Boissons"], "hours": HEALTHY_HOURS, "brand": "#059669",
+        "sector": "Diététique", "hours": HEALTHY_HOURS, "brand": "#059669",
         "owner_index": 7,
         "sections": {
             "Bowls & plats complets": [
@@ -190,3 +215,60 @@ DRIVERS = [
     ("Narcisse", "K.", "Akwa", "moto"),
     ("Brice", "M.", "Bonapriso", "bike"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Boissons (section commune) et complements / supplements par plat
+# ---------------------------------------------------------------------------
+DRINKS = [
+    # nom, description, prix FCFA, preparation min
+    ("Eau minérale 50cl", "Bouteille d'eau fraîche de 50 cl.", 300, 1),
+    ("Coca-Cola 33cl", "Boisson gazeuse servie bien fraîche.", 500, 1),
+    ("Jus de bissap maison", "Hibiscus, gingembre et citron vert. Sans sucre ajouté.", 1000, 5),
+]
+
+# Nom du plat -> [(groupe affiche, nom du complement, prix ajoute FCFA)]
+DISH_OPTIONS = {
+    "Ndolé Spécial + Riz": [
+        ("Suppléments", "Plantain mûr", 500), ("Suppléments", "Œuf dur", 300),
+        ("Suppléments", "Viande supplémentaire", 1000), ("Sauces", "Sauce arachide", 300),
+        ("Boissons", "Coca-Cola 33cl", 500), ("Boissons", "Jus de bissap maison", 1000)],
+    "Okok + Bâton de Manioc": [
+        ("Suppléments", "Poisson fumé", 800), ("Boissons", "Eau minérale 50cl", 300)],
+    "Poulet braisé entier": [
+        ("Accompagnements", "Frites supplémentaires", 800), ("Sauces", "Sauce piment", 200),
+        ("Boissons", "Coca-Cola 33cl", 500)],
+    "Demi-poulet grillé": [
+        ("Accompagnements", "Alloco", 1200), ("Boissons", "Eau minérale 50cl", 300)],
+    "Pizza Margherita": [
+        ("Suppléments", "Mozzarella extra", 700), ("Suppléments", "Champignons", 500),
+        ("Suppléments", "Olives noires", 400), ("Boissons", "Coca-Cola 33cl", 500)],
+    "Pizza Reine": [
+        ("Suppléments", "Mozzarella extra", 700), ("Suppléments", "Piment doux", 200),
+        ("Boissons", "Eau minérale 50cl", 300)],
+    "Classic Beef Burger": [
+        ("Suppléments", "Double steak", 1500), ("Suppléments", "Bacon", 800),
+        ("Suppléments", "Oignons caramélisés", 300), ("Accompagnements", "Frites maison", 1500),
+        ("Boissons", "Coca-Cola 33cl", 500)],
+    "Chicken Crispy": [
+        ("Suppléments", "Sauce barbecue", 200), ("Accompagnements", "Frites maison", 1500),
+        ("Boissons", "Coca-Cola 33cl", 500)],
+    "Bowl quinoa & poulet grillé": [
+        ("Suppléments", "Avocat", 600), ("Suppléments", "Œuf poché", 400),
+        ("Boissons", "Jus de bissap maison", 1000)],
+    "Salade avocat & crevettes": [
+        ("Suppléments", "Crevettes supplémentaires", 1200), ("Boissons", "Eau minérale 50cl", 300)],
+    "Mixed Grill": [
+        ("Suppléments", "Merguez extra", 800), ("Boissons", "Coca-Cola 33cl", 500)],
+}
+
+
+def _add_drinks_section():
+    """Ajoute une section « Boissons » a chaque restaurant du catalogue de demo."""
+    for resto in RESTAURANTS:
+        resto["sections"].setdefault("Boissons", [
+            (name, desc, price, prep, False, "", (False, None, None, None, None, None, "", ""))
+            for name, desc, price, prep in DRINKS])
+
+
+_add_drinks_section()

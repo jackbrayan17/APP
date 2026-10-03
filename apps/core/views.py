@@ -7,14 +7,15 @@ from django.db.models.functions import TruncDate
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from apps.restaurants.models import Restaurant, Category, Dish, Favorite
+from apps.restaurants.models import Restaurant, Sector, Dish, Favorite
 from apps.orders.models import Order, Review
 from apps.delivery.models import DriverProfile
-from apps.promotions.models import PromoCodeRedemption
+from apps.promotions.models import Promotion, PromoCode, PromoCodeRedemption
 from apps.accounts.models import User
 from .models import ActivityLog, Notification, PushSubscription
 
@@ -27,12 +28,23 @@ def _cart_count(request):
 def home(request):
     cat_slug = request.GET.get("cat")
     q = request.GET.get("q", "").strip()
-    categories = Category.objects.all()
-    restaurants = Restaurant.objects.filter(is_active=True).prefetch_related("categories")
+    sectors = Sector.objects.all()
+    # Libellés courts d'une seule ligne pour les catégories (le nom complet reste en base)
+    short_labels = {
+        "restaurant-camerounais": "Local",
+        "restaurant-italien": "Italien",
+        "fast-food": "Fastfood",
+        "grillades": "Grillades",
+        "dietetique": "Diététique",
+    }
+    sector_chips = [{"slug": "tous", "name": "Tous", "icon": "tous"}] + [
+        {"slug": s.slug, "name": short_labels.get(s.slug, s.name.split()[0]), "icon": s.icon_name}
+        for s in sectors]
+    restaurants = Restaurant.objects.filter(is_active=True).select_related("sector")
     filter_active = bool(cat_slug)
-    active_category = categories.filter(slug=cat_slug).first() if filter_active else None
+    active_category = sectors.filter(slug=cat_slug).first() if filter_active else None
     if filter_active and cat_slug != "tous":
-        restaurants = restaurants.filter(categories__slug=cat_slug).distinct()
+        restaurants = restaurants.filter(sector__slug=cat_slug)
 
     search_restaurants = Restaurant.objects.none()
     search_dishes = Dish.objects.none()
@@ -51,10 +63,7 @@ def home(request):
             restaurant__is_active=True,
         ).select_related("restaurant"))
         if filter_active and cat_slug != "tous":
-            search_dishes = search_dishes.filter(
-                Q(category__slug=cat_slug) |
-                Q(restaurant__categories__slug=cat_slug)
-            ).distinct()
+            search_dishes = search_dishes.filter(restaurant__sector__slug=cat_slug)
         search_dishes = search_dishes.order_by("-is_popular", "-orders_count", "name")[:20]
     elif filter_active:
         search_restaurants = restaurants.order_by("-rating")
@@ -63,18 +72,54 @@ def home(request):
             restaurant__is_active=True,
         ).select_related("restaurant")
         if cat_slug != "tous":
-            search_dishes = search_dishes.filter(
-                Q(category__slug=cat_slug) |
-                Q(restaurant__categories__slug=cat_slug)
-            ).distinct()
+            search_dishes = search_dishes.filter(restaurant__sector__slug=cat_slug)
         search_dishes = search_dishes.order_by(
             "-is_popular", "-orders_count", "name"
         )[:20]
 
+    # À la une : restaurants mis en avant, complétés par les mieux notés (jusqu'à 11)
+    featured = list(Restaurant.objects.filter(is_active=True, is_featured=True)[:11])
+    if len(featured) < 11:
+        featured_ids = [r.id for r in featured]
+        featured += list(Restaurant.objects.filter(is_active=True)
+                         .exclude(id__in=featured_ids)
+                         .order_by("-rating", "-orders_count")[:11 - len(featured)])
+
+    # Diaporama : promos en cours + photos de plats
+    now = timezone.now()
+    promos = (Promotion.objects.filter(is_active=True, starts_at__lte=now, ends_at__gte=now,
+                                       restaurant__is_active=True)
+              .select_related("restaurant")[:4])
+    showcase_dishes = (Dish.objects.filter(is_available=True, restaurant__is_active=True)
+                       .exclude(image="").exclude(image__isnull=True)
+                       .select_related("restaurant")
+                       .order_by("-is_popular", "-orders_count", "name")[:4])
+    slides = []
+    for promo in promos:
+        resto = promo.restaurant
+        picture = resto.cover_image or resto.logo
+        if picture:
+            slides.append({"img": picture.url, "title": promo.title, "sub": resto.name,
+                           "badge": promo.label, "href": reverse("restaurants:detail", args=[resto.slug])})
+    for dish in showcase_dishes:
+        slides.append({"img": dish.image.url, "title": dish.name, "sub": dish.restaurant.name,
+                       "badge": "", "href": reverse("restaurants:dish_detail", args=[dish.id])})
+
+    # Rails de plats : 6 plats d'un même restaurant
+    dish_rails = []
+    for resto in Restaurant.objects.filter(is_active=True).order_by("-orders_count", "-rating")[:8]:
+        dishes = list(resto.dishes.filter(is_available=True)
+                      .order_by("-is_popular", "-orders_count", "name")[:6])
+        if len(dishes) >= 2:
+            dish_rails.append({"resto": resto, "dishes": dishes})
+
     context = {
-        "categories": categories,
-        "featured": Restaurant.objects.filter(is_active=True, is_featured=True)[:8],
-        "popular": Restaurant.objects.filter(is_active=True).order_by("-orders_count", "-rating")[:8],
+        "sector_chips": sector_chips,
+        "featured": featured,
+        "popular": Restaurant.objects.filter(is_active=True).order_by("-orders_count", "-rating")[:6],
+        "showcase": slides,
+        "dish_rails_top": dish_rails[:2],
+        "dish_rails_bottom": dish_rails[2:4],
         "restaurants": restaurants.order_by("-is_featured", "-rating"),
         "search_restaurants": search_restaurants,
         "search_dishes": search_dishes,
@@ -261,6 +306,65 @@ def _is_admin(user):
     return user.is_authenticated and (user.is_staff or user.role == User.Role.ADMIN)
 
 
+def _design_screens():
+    """Tous les ecrans de l'application, avec un exemple d'objet pour chaque URL dynamique."""
+    resto = Restaurant.objects.filter(is_active=True).order_by("id").first()
+    dish = Dish.objects.filter(is_available=True).order_by("id").first()
+    order = Order.objects.order_by("-id").first()
+    slug = resto.slug if resto else "x"
+    share = resto.share_token if resto else "x"
+    dish_id = dish.id if dish else 0
+    number = order.number if order else "OE0"
+    order_share = order.share_token if order else "x"
+    # (role, libelle, url). Le role indique le compte necessaire pour voir l'ecran.
+    return [
+        ("Public", "Connexion", "/connexion/"),
+        ("Public", "Inscription", "/inscription/"),
+        ("Public", "Centre d'aide", "/aide/"),
+        ("Public", "Mentions légales", "/legal/cgu/"),
+        ("Public", "Partage restaurant", f"/r/{share}/"),
+        ("Public", "Suivi partagé", f"/c/{order_share}/"),
+        ("Client", "Accueil", "/"),
+        ("Client", "Explorer", "/explorer/"),
+        ("Client", "Diététique", "/dietetique/"),
+        ("Client", "Restaurant", f"/restaurant/{slug}/"),
+        ("Client", "Fiche plat (compléments)", f"/plat/{dish_id}/"),
+        ("Client", "Panier", "/panier/"),
+        ("Client", "Favoris", "/favoris/"),
+        ("Client", "Mes commandes", "/commandes/"),
+        ("Client", "Notifications", "/notifications/"),
+        ("Client", "Profil", "/profil/"),
+        ("Client", "Détail commande", f"/commande/{number}/"),
+        ("Restaurant", "Tableau de bord", "/resto/"),
+        ("Restaurant", "Commandes", "/resto/commandes/"),
+        ("Restaurant", "Menu", "/resto/menu/"),
+        ("Restaurant", "Ma page", "/resto/personnaliser/"),
+        ("Restaurant", "Promotions", "/resto/promos/"),
+        ("Restaurant", "Livreurs", "/resto/livreurs/"),
+        ("Livreur", "Espace livreur", "/livreur/"),
+        ("Livreur", "Suivi de course", f"/suivi/{number}/"),
+        ("Influenceur", "Espace influenceur", "/influenceur/"),
+        ("Admin", "Pilotage plateforme", "/tableau-admin/"),
+    ]
+
+
+@user_passes_test(_is_admin, login_url="/connexion/")
+def design_preview(request):
+    """Page /design : controle responsive de tous les ecrans (reservee a l'equipe ONE EAT)."""
+    screens = []
+    for role, label, url in _design_screens():
+        # L'administrateur peut ouvrir les ecrans publics, client et admin dans un cadre.
+        # Les autres ecrans demandent un compte dedie : on les liste sans les charger.
+        # Le detail d'une commande appartient a un client : il faut son compte.
+        frame = role in ("Public", "Client", "Admin") and not url.startswith("/commande/")
+        screens.append({"role": role, "label": label, "url": url, "frame": frame})
+    return render(request, "design/preview.html", {
+        "screens": screens,
+        "external_count": sum(1 for s in screens if not s["frame"]),
+        "widths": [320, 375, 414, 768, 1024, 1440],
+    })
+
+
 @user_passes_test(_is_admin, login_url="/connexion/")
 def admin_dashboard(request):
     now = timezone.now()
@@ -292,9 +396,13 @@ def admin_dashboard(request):
     active_statuses = [
         Order.Status.PENDING, Order.Status.CONFIRMED, Order.Status.PREPARING,
         Order.Status.READY, Order.Status.PICKED_UP, Order.Status.ON_THE_WAY,
+        Order.Status.ARRIVED,
     ]
     active_orders = orders.filter(status__in=active_statuses).count()
     delivery_rate = round((delivered_count / order_count * 100), 1) if order_count else 0
+    abandoned_count = orders.filter(status=Order.Status.CANCELLED,
+                                    cancelled_by=Order.CancelledBy.CUSTOMER).count()
+    abandon_rate = round(abandoned_count / order_count * 100, 1) if order_count else 0
 
     top_dishes = (Dish.objects.select_related("restaurant")
                   .annotate(
@@ -330,6 +438,11 @@ def admin_dashboard(request):
                              .order_by("-delivered_count", "-delivery_count", "-rating")[:8])
     top_rated = (Restaurant.objects.filter(rating_count__gt=0)
                  .order_by("-rating", "-rating_count")[:8])
+    # Classement complet par avis : note moyenne puis nombre d'avis
+    restaurant_ranking = (Restaurant.objects.annotate(
+                              review_total=Count("reviews", distinct=True))
+                          .order_by("-rating", "-review_total", "name"))
+    pending_promo_codes = PromoCode.objects.filter(status=PromoCode.Status.PENDING).count()
 
     status_rows = list(orders.values("status").annotate(n=Count("id")).order_by("-n"))
     status_labels = dict(Order.Status.choices)
@@ -405,6 +518,9 @@ def admin_dashboard(request):
             "avg_basket": avg_basket,
             "delivered": delivered_count,
             "delivery_rate": delivery_rate,
+            "abandoned": abandoned_count,
+            "abandon_rate": abandon_rate,
+            "pending_promo_codes": pending_promo_codes,
             "active_orders": active_orders,
             "reviews": Review.objects.filter(order__in=orders).count(),
             "favorites": Favorite.objects.count(),
@@ -415,6 +531,7 @@ def admin_dashboard(request):
         "top_restaurants_by_orders": top_restaurants_by_orders,
         "top_drivers_by_orders": top_drivers_by_orders,
         "top_rated": top_rated,
+        "restaurant_ranking": restaurant_ranking,
         "orders_by_status": orders_by_status,
         "payments": payments,
         "recent_orders": orders[:10],
@@ -553,7 +670,7 @@ def dietetique(request):
         for g in d.diet_goals:
             counts[g] = counts.get(g, 0) + 1
     goals = [{"slug": s, "label": l, "hint": h, "count": counts.get(s, 0)} for s, l, h in DIET_GOALS]
-    healthy_restos = Restaurant.objects.filter(is_active=True, categories__slug="healthy").distinct()
+    healthy_restos = Restaurant.objects.filter(is_active=True, sector__name="Diététique")
     return render(request, "client/dietetique.html", {
         "dishes": dishes, "goals": goals, "goal": goal, "sort": sort, "max_kcal": max_kcal,
         "diet_only": diet_only, "healthy_restos": healthy_restos,

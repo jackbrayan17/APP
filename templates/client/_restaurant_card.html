@@ -1,5 +1,6 @@
 {% load static %}
 <a href="{% url 'restaurants:detail' r.slug %}"
+   data-neighborhood="{{ r.neighborhood }}"
    class="flex gap-3 p-3 rounded-2xl bg-white border border-gray-100 shadow-sm active:scale-[.99] transition">
   <div class="relative w-[84px] h-[84px] rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
     {% if r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover {% if not r.is_open_now %}grayscale opacity-70{% endif %}" alt="{{ r.name }}" loading="lazy">
@@ -11,6 +12,7 @@
       <h3 class="font-bold text-gray-900 leading-tight">{{ r.name }}
         {% if r.is_pro %}<span class="align-middle ml-1 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">PRO</span>{% endif %}
       </h3>
+      <span data-near-badge data-i18n="in_your_area" class="hidden flex-shrink-0 text-emerald-700 text-[10px] font-bold bg-emerald-50 px-2 py-0.5 rounded-full">Dans votre quartier</span>
       {% if r.tagline %}<span class="flex-shrink-0 text-brand text-xs font-bold border border-brand/30 bg-brand-50 px-2 py-0.5 rounded-full">{{ r.tagline }}</span>{% endif %}
     </div>
     {% if r.bio %}<p class="text-sm text-gray-500 mt-1 line-clamp-1">{{ r.bio|truncatechars:48 }}</p>{% endif %}

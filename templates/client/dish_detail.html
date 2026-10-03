@@ -4,10 +4,10 @@
 {% block head %}<style>:root{ --resto:{{ resto.brand_color }}; --resto-50:{{ resto.accent_color }}; }</style>{% endblock %}
 
 {% block content %}
-<div>
+<div x-data="dishPage()">
   <div class="relative h-[320px] bg-gray-100">
     {% if dish.image %}
-      <img src="{{ dish.image.url }}" class="w-full h-full object-cover" alt="{{ dish.name }}">
+      <img src="{{ dish.image.url }}" class="oe-dish-enter w-full h-full object-cover" alt="{{ dish.name }}">
     {% elif resto.cover_image %}
       <img src="{{ resto.cover_image.url }}" class="w-full h-full object-cover" alt="{{ resto.name }}">
     {% else %}
@@ -15,7 +15,7 @@
     {% endif %}
     <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10"></div>
     <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
-      <a href="{% url 'restaurants:detail' resto.slug %}" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow" aria-label="Retour restaurant">
+      <a href="{% url 'restaurants:detail' resto.slug %}" data-oe-back class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow" aria-label="Retour">
         <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
       </a>
       <div class="flex items-center gap-2">
@@ -58,6 +58,29 @@
       <h2 class="font-extrabold text-gray-900">Description</h2>
       <p class="mt-2 text-sm leading-6 text-gray-600">{{ dish.description|default:"Description bientôt disponible." }}</p>
     </section>
+
+    {% if options %}
+    <section id="options" class="mt-6 scroll-mt-4">
+      <h2 class="font-extrabold text-gray-900">Compléments & suppléments</h2>
+      <p class="mt-0.5 text-xs text-gray-500">Cochez ce que vous voulez ajouter à ce plat (boissons, extras).</p>
+      {% regroup options by group as option_groups %}
+      {% for grp in option_groups %}
+      <div class="mt-4">
+        <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-500">{{ grp.grouper|default:"Suppléments" }}</p>
+        <div class="space-y-2">
+          {% for o in grp.list %}
+          <label class="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition"
+                 :class="picked.includes('{{ o.id }}') ? 'border-brand bg-brand-50/60' : 'border-gray-200'">
+            <input type="checkbox" value="{{ o.id }}" x-model="picked" class="h-5 w-5 accent-[#FF6B1A]">
+            <span class="flex-1 text-sm font-semibold text-gray-900">{{ o.name }}</span>
+            <span class="text-sm font-bold tabular {% if o.price %}text-gray-800{% else %}text-emerald-600{% endif %}">{% if o.price %}+{{ o.price|intcomma }} {{ CURRENCY }}{% else %}Offert{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
 
     {% if dish.calories %}
     <section class="mt-6 rounded-3xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white p-4" aria-labelledby="nutri-title">
@@ -138,11 +161,11 @@
     {% endif %}
   </div>
 
-  <div class="fixed bottom-[76px] left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-white/95 backdrop-blur border-t border-gray-100 p-4">
+  <div class="fixed bottom-[76px] left-1/2 -translate-x-1/2 w-full max-w-[var(--shell-w)] bg-white/95 backdrop-blur border-t border-gray-100 p-4">
     {% if not resto.is_open_now %}<p class="mb-2 text-center text-xs font-semibold text-amber-600">{{ resto.opening_status_label }} — vous pourrez commander à l'ouverture</p>{% endif %}
     <div class="flex gap-2">
-      <button data-add-cart="{{ dish.id }}" class="flex-1 py-3.5 rounded-2xl bg-brand text-white font-extrabold active:scale-[.99] transition shadow-lg shadow-brand/25">
-        Ajouter · {{ dish.current_price|intcomma }} {{ CURRENCY }}
+      <button type="button" @click="add()" :disabled="busy" class="flex-1 py-3.5 rounded-2xl bg-brand text-white font-extrabold active:scale-[.99] transition shadow-lg shadow-brand/25 disabled:opacity-60">
+        Ajouter · <span x-text="fmt(total)">{{ dish.current_price|intcomma }}</span> {{ CURRENCY }}
       </button>
       <a href="{% url 'orders:cart' %}" class="w-14 rounded-2xl bg-gray-900 text-white flex items-center justify-center" aria-label="Voir le panier">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
@@ -150,4 +173,41 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dishPage(){
+  return {
+    base: {{ dish.current_price }},
+    prices: { {% for o in options %}'{{ o.id }}': {{ o.price }}{% if not forloop.last %}, {% endif %}{% endfor %} },
+    picked: [],
+    busy: false,
+    get total(){ return this.base + this.picked.reduce((sum, id) => sum + (this.prices[id] || 0), 0); },
+    fmt(n){ return Number(n).toLocaleString('fr-FR').replace(/\s/g, ' '); },
+    add(){
+      if (this.busy) return;
+      this.busy = true;
+      const body = new URLSearchParams();
+      this.picked.forEach(id => body.append('options', id));
+      fetch('{% url "orders:cart_add" dish.id %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': OE.csrftoken },
+        body: body,
+      })
+        .then(r => r.json().then(d => ({ ok: r.ok, d: d })))
+        .then(res => {
+          if (res.ok && res.d.ok) {
+            OE.updateCartBadge(res.d.count);
+            OE.toast('✓ ' + res.d.name + ' ajouté au panier');
+          } else {
+            OE.toast(res.d.error || "Impossible d'ajouter ce plat", 'warn');
+          }
+        })
+        .catch(() => OE.toast('Connexion impossible, réessayez', 'warn'))
+        .finally(() => { this.busy = false; });
+    },
+  };
+}
+</script>
 {% endblock %}

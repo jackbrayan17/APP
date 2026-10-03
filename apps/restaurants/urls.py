@@ -11,6 +11,9 @@ urlpatterns = [
     path("resto/menu/plat/", views.dish_save, name="dish_save"),
     path("resto/menu/plat/<int:dish_id>/supprimer/", views.dish_delete, name="dish_delete"),
     path("resto/menu/section/", views.section_save, name="section_save"),
+    path("resto/menu/plat/<int:dish_id>/complements/", views.dish_options, name="dish_options"),
+    path("resto/menu/plat/<int:dish_id>/complements/ajouter/", views.option_save, name="option_save"),
+    path("resto/menu/complement/<int:option_id>/", views.option_update, name="option_update"),
     path("resto/personnaliser/", views.customize, name="customize"),
     path("resto/commandes/", views.orders_manage, name="orders"),
     path("resto/commandes/flux/", views.orders_feed, name="orders_feed"),
@@ -24,6 +27,7 @@ urlpatterns = [
     path("favoris/<slug:slug>/", views.favorite_toggle, name="favorite_toggle"),
     # Public
     path("plat/<int:dish_id>/", views.dish_detail, name="dish_detail"),
+    path("plat/<int:dish_id>/options.json", views.dish_options_json, name="dish_options_json"),
     path("restaurant/<slug:slug>/", views.restaurant_detail, name="detail"),
     path("r/<str:token>/", views.restaurant_share, name="share"),
 ]

@@ -9,9 +9,11 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.core.inputs import clean_float
 from apps.core.routing import road_route, tracking_payload
 from apps.orders.models import Order
-from apps.orders.workflow import (TransitionError, driver_claim, driver_deliver, driver_pickup,
+from apps.orders.qr import delivery_qr_data_uri
+from apps.orders.workflow import (TransitionError, driver_arrive, driver_claim, driver_pickup,
                                   mission_offers)
 from .models import DriverProfile
 
@@ -61,10 +63,13 @@ def dashboard(request):
     map_orders = [{"number": o.number, "restaurant": o.restaurant.name,
                    "rlat": o.restaurant.lat, "rlng": o.restaurant.lng, "fee": o.delivery_fee}
                   for o in offers if o.restaurant.lat]
+    mission_qr = None
+    if mission and mission.status in (Order.Status.ON_THE_WAY, Order.Status.ARRIVED):
+        mission_qr = delivery_qr_data_uri(request, mission)
     center_lat = prof.current_lat if prof.current_lat is not None else settings.DOUALA_CENTER["lat"]
     center_lng = prof.current_lng if prof.current_lng is not None else settings.DOUALA_CENTER["lng"]
     return render(request, "delivery/dashboard.html", {
-        "profile": prof, "mission": mission, "offers": offers,
+        "profile": prof, "mission": mission, "offers": offers, "mission_qr": mission_qr,
         "offer_seconds": OFFER_SECONDS, "history": history,
         "earnings": {k: prof.earnings_since(v) for k, v in starts.items()},
         "earnings_total": prof.earnings_since(),
@@ -103,8 +108,12 @@ def update_location(request):
     prof = _profile(request)
     try:
         data = json.loads(request.body or "{}")
-        lat, lng = float(data["lat"]), float(data["lng"])
-    except (ValueError, KeyError, TypeError):
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False}, status=400)
+    # NaN, infini ou hors planete : refuses (sinon la carte et le rayon 10 km deraillent).
+    lat = clean_float(data.get("lat") if isinstance(data, dict) else None, lo=-90, hi=90)
+    lng = clean_float(data.get("lng") if isinstance(data, dict) else None, lo=-180, hi=180)
+    if lat is None or lng is None:
         return JsonResponse({"ok": False}, status=400)
     prof.current_lat, prof.current_lng = lat, lng
     prof.last_seen = timezone.now()
@@ -148,9 +157,9 @@ def update_status(request, order_id):
         if action in ("pickup", Order.Status.PICKED_UP, Order.Status.ON_THE_WAY):
             driver_pickup(order, request.user)
             messages.success(request, "Récupération confirmée. En route vers le client !")
-        elif action in ("deliver", Order.Status.DELIVERED):
-            driver_deliver(order, request.user)
-            messages.success(request, f"Livraison confirmée · +{order.delivery_fee} FCFA 🎉")
+        elif action in ("arrive", "deliver", Order.Status.ARRIVED, Order.Status.DELIVERED):
+            driver_arrive(order, request.user)
+            messages.success(request, "Arrivée signalée. Le client valide la livraison avec son code ou le QR.")
         else:
             messages.error(request, "Action inconnue.")
     except TransitionError as exc:

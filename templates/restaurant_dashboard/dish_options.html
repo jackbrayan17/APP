@@ -1,0 +1,59 @@
+{% extends "restaurant_dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Compléments — {{ dish.name }}{% endblock %}
+{% block dash %}
+<div class="mx-auto w-full max-w-3xl">
+  <a href="{% url 'restaurants:menu' %}" data-oe-back class="inline-flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-900">
+    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>Retour au menu
+  </a>
+
+  <h2 class="mt-3 text-lg font-extrabold text-gray-900 break-words">Compléments de « {{ dish.name }} »</h2>
+  <p class="mt-1 text-sm text-gray-500">Boissons, suppléments et extras proposés au client au moment d'ajouter ce plat au panier.</p>
+
+  <form method="post" action="{% url 'restaurants:option_save' dish.id %}" class="mt-5 grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_140px_96px_auto] lg:items-end">
+    {% csrf_token %}
+    <label class="block min-w-0">
+      <span class="text-xs font-bold text-gray-600">Nom du complément</span>
+      <input name="name" required maxlength="80" placeholder="ex : Coca-Cola 33 cl" class="mt-1 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </label>
+    <label class="block min-w-0">
+      <span class="text-xs font-bold text-gray-600">Rubrique</span>
+      <input name="group" list="option-groups" maxlength="40" value="Boissons" class="mt-1 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <datalist id="option-groups">{% for g in group_suggestions %}<option value="{{ g }}">{% endfor %}</datalist>
+    </label>
+    <label class="block">
+      <span class="text-xs font-bold text-gray-600">Prix (FCFA)</span>
+      <input name="price" type="number" inputmode="numeric" min="0" max="50000" step="1" value="0" required
+             title="Nombre entier entre 0 et 50 000. 0 = offert" class="mt-1 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm tabular focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </label>
+    <label class="block">
+      <span class="text-xs font-bold text-gray-600">Ordre</span>
+      <input name="order" type="number" inputmode="numeric" min="0" max="999" step="1" value="0" class="mt-1 w-full rounded-xl bg-gray-100 px-4 py-3 text-sm tabular focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </label>
+    <button class="rounded-xl bg-gray-900 px-5 py-3 text-sm font-bold text-white sm:col-span-2 lg:col-span-1">Ajouter</button>
+  </form>
+
+  <div class="mt-6 space-y-2">
+    {% for o in options %}
+    <div class="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 {% if not o.is_available %}opacity-60{% endif %}">
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-sm font-bold text-gray-900">{{ o.name }}</p>
+        <p class="text-xs text-gray-500">{{ o.group }} · {% if o.price %}+{{ o.price|intcomma }} FCFA{% else %}offert{% endif %}</p>
+      </div>
+      <form method="post" action="{% url 'restaurants:option_update' o.id %}">
+        {% csrf_token %}<input type="hidden" name="action" value="toggle">
+        <button class="rounded-full px-3 py-1.5 text-xs font-bold {% if o.is_available %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+          {% if o.is_available %}Disponible{% else %}Indisponible{% endif %}
+        </button>
+      </form>
+      <form method="post" action="{% url 'restaurants:option_update' o.id %}" onsubmit="return confirm('Supprimer ce complément ?')">
+        {% csrf_token %}<input type="hidden" name="action" value="delete">
+        <button class="rounded-full px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">Supprimer</button>
+      </form>
+    </div>
+    {% empty %}
+    <p class="rounded-2xl border border-dashed border-gray-200 py-10 text-center text-sm text-gray-400">Aucun complément pour ce plat.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

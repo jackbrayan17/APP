@@ -3,6 +3,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 
+from apps.core.inputs import clean_float, clean_phone
 from apps.delivery.models import DriverProfile
 from apps.promotions.models import InfluencerProfile
 from .forms import RegisterForm
@@ -80,12 +81,16 @@ def profile_view(request):
         u = request.user
         u.first_name = request.POST.get("first_name", u.first_name)
         u.last_name = request.POST.get("last_name", u.last_name)
-        u.phone = request.POST.get("phone", u.phone)
-        u.address = request.POST.get("address", u.address)
-        lat = request.POST.get("lat")
-        lng = request.POST.get("lng")
-        if lat and lng:
-            u.lat, u.lng = float(lat), float(lng)
+        phone = clean_phone(request.POST.get("phone", u.phone))
+        if phone is None:
+            messages.error(request, "Téléphone invalide : 8 à 15 chiffres (le + est accepté).")
+            return redirect("accounts:profile")
+        u.phone = phone
+        u.address = request.POST.get("address", u.address)[:255]
+        lat = clean_float(request.POST.get("lat"), lo=-90, hi=90)
+        lng = clean_float(request.POST.get("lng"), lo=-180, hi=180)
+        if lat is not None and lng is not None:
+            u.lat, u.lng = lat, lng
         u.save()
         messages.success(request, "Profil mis a jour.")
         return redirect("accounts:profile")

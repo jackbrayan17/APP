@@ -8,7 +8,9 @@ Client -> Restaurant -> Livreur, dans cet ordre :
                                                                     |
     (livreur) claim : s'affecte la course des CONFIRMED (se rend au restaurant)
     (livreur) pickup : READY -> ON_THE_WAY (uniquement quand la cuisine a fini)
-    (livreur) deliver : ON_THE_WAY -> DELIVERED (encaissement si especes)
+    (livreur) arrive : ON_THE_WAY -> ARRIVED (signale son arrivee chez le client)
+    (client) validate : ARRIVED -> DELIVERED avec le code / QR, puis note la livraison
+    (client) abandon : annule la commande tant que le livreur ne l'a pas recuperee
 
 Le web, l'API mobile et l'admin passent tous par ces fonctions : aucun acteur
 ne peut sauter une etape ni modifier une commande qui ne le concerne pas.
@@ -18,12 +20,12 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.geo import haversine_km
-from .models import Order
+from .models import Order, Review
 
 S = Order.Status
 PS = Order.PaymentStatus
 
-ACTIVE_DRIVER_STATUSES = [S.CONFIRMED, S.PREPARING, S.READY, S.PICKED_UP, S.ON_THE_WAY]
+ACTIVE_DRIVER_STATUSES = [S.CONFIRMED, S.PREPARING, S.READY, S.PICKED_UP, S.ON_THE_WAY, S.ARRIVED]
 OFFER_STATUSES = [S.CONFIRMED, S.PREPARING, S.READY]
 CLOSED_STATUSES = [S.DELIVERED, S.CANCELLED]
 
@@ -109,7 +111,8 @@ def restaurant_action(order, action, reason=""):
         order.ready_at = now
         fields.append("ready_at")
     elif target == S.CANCELLED:
-        _cancel_fields(order, reason or "Annulée par le restaurant.", fields)
+        _cancel_fields(order, reason or "Annulée par le restaurant.", fields,
+                       by=Order.CancelledBy.RESTAURANT)
     order.save(update_fields=fields)
 
     url = _customer_url(order)
@@ -134,10 +137,11 @@ def restaurant_action(order, action, reason=""):
     return order
 
 
-def _cancel_fields(order, reason, fields):
+def _cancel_fields(order, reason, fields, by):
     order.cancelled_at = timezone.now()
     order.cancel_reason = reason[:160]
-    fields += ["cancelled_at", "cancel_reason"]
+    order.cancelled_by = by
+    fields += ["cancelled_at", "cancel_reason", "cancelled_by"]
     if order.payment_status == PS.PAID:
         order.payment_status = PS.REFUNDED
         fields.append("payment_status")
@@ -147,17 +151,65 @@ def _cancel_fields(order, reason, fields):
 # Client
 # --------------------------------------------------------------------------- #
 @transaction.atomic
-def customer_cancel(order, reason="Annulée par le client."):
+def customer_cancel(order, reason="Commande abandonnée par le client."):
+    """Abandon de commande par le client, tant que le livreur ne l'a pas recuperee."""
     order = Order.objects.select_for_update().get(pk=order.pk)
     if not order.is_cancellable_by_customer:
-        raise TransitionError("Le restaurant a déjà accepté : contactez le support pour annuler.")
-    order.status = S.CANCELLED
+        raise TransitionError("Le livreur a déjà récupéré la commande : contactez le support.")
     fields = ["status", "updated_at"]
-    _cancel_fields(order, reason, fields)
+    order.status = S.CANCELLED
+    _cancel_fields(order, reason, fields, by=Order.CancelledBy.CUSTOMER)
     order.save(update_fields=fields)
     if not order.is_awaiting_payment:
-        _notify(order.restaurant.owner, f"Commande {order.number} annulée",
-                "Le client a annulé avant acceptation.", "/resto/commandes/")
+        _notify(order.restaurant.owner, f"Commande {order.number} abandonnée",
+                "Le client a abandonné la commande.", "/resto/commandes/")
+    if order.driver_id:
+        _notify(order.driver, f"Course {order.number} annulée", "Le client a abandonné la commande.",
+                "/livreur/")
+    return order
+
+
+@transaction.atomic
+def customer_validate(order, customer, code, rating=None, driver_rating=None, comment=""):
+    """Le client valide la livraison avec le code (ou QR) du livreur, puis note."""
+    order = Order.objects.select_for_update().get(pk=order.pk)
+    if order.customer_id != customer.id:
+        raise TransitionError("Cette commande ne vous appartient pas.")
+    if not order.can_validate:
+        raise TransitionError("Le livreur n'est pas encore arrivé chez vous.")
+    if str(code or "").strip() != order.delivery_code:
+        raise TransitionError("Code incorrect. Vérifiez le code affiché par le livreur.")
+
+    from apps.delivery.models import DriverProfile
+    now = timezone.now()
+    order.status = S.DELIVERED
+    order.delivered_at = now
+    fields = ["status", "delivered_at", "updated_at"]
+    if order.payment_status == PS.ON_DELIVERY:
+        order.payment_status = PS.PAID
+        fields.append("payment_status")
+    order.save(update_fields=fields)
+
+    def stars(value):
+        try:
+            return max(1, min(5, int(value)))
+        except (TypeError, ValueError):
+            return None
+
+    rating = stars(rating)
+    if rating and not hasattr(order, "review"):
+        Review.objects.create(
+            order=order, customer=customer, restaurant=order.restaurant,
+            driver=order.driver, rating=rating,
+            driver_rating=stars(driver_rating) if order.driver_id else None,
+            comment=(comment or "")[:1000],
+        )
+    if order.driver_id:
+        DriverProfile.objects.filter(user_id=order.driver_id).update(deliveries_count=F("deliveries_count") + 1)
+        _notify(order.driver, f"Livraison {order.number} validée 🎉",
+                "Le client a confirmé la réception.", "/livreur/")
+    _notify(order.restaurant.owner, f"Commande {order.number} livrée",
+            "Le client a validé la livraison.", "/resto/commandes/")
     return order
 
 
@@ -254,26 +306,19 @@ def driver_pickup(order, driver):
 
 
 @transaction.atomic
-def driver_deliver(order, driver):
-    """Livraison confirmee : encaissement especes + stats livreur/restaurant."""
-    from apps.delivery.models import DriverProfile
+def driver_arrive(order, driver):
+    """Le livreur est arrive chez le client : le client doit valider avec son code / QR."""
     order = Order.objects.select_for_update().get(pk=order.pk)
     if order.driver_id != driver.id:
         raise TransitionError("Cette course ne vous est pas affectée.")
     if order.status != S.ON_THE_WAY:
         raise TransitionError("Confirmez d'abord la récupération au restaurant.")
-    order.status = S.DELIVERED
-    order.delivered_at = timezone.now()
-    fields = ["status", "delivered_at", "updated_at"]
-    if order.payment_status == PS.ON_DELIVERY:
-        order.payment_status = PS.PAID
-        fields.append("payment_status")
-    order.save(update_fields=fields)
-    DriverProfile.objects.filter(user=driver).update(deliveries_count=F("deliveries_count") + 1)
-    _notify(order.customer, "Commande livrée 🎉",
-            "Bon appétit ! Notez le restaurant et votre livreur.", _customer_url(order))
-    _notify(order.restaurant.owner, f"Commande {order.number} livrée",
-            f"Livrée par {driver.display_name}.", "/resto/commandes/")
+    order.status = S.ARRIVED
+    order.arrived_at = timezone.now()
+    order.save(update_fields=["status", "arrived_at", "updated_at"])
+    _notify(order.customer, "Votre livreur est arrivé 🛵",
+            f"Donnez-lui le code {order.delivery_code} ou scannez son QR code pour valider.",
+            _customer_url(order))
     return order
 
 
@@ -281,6 +326,6 @@ def driver_advance(order, driver, target_status):
     """Compatibilite API : applique le statut demande via la bonne transition."""
     if target_status in (S.PICKED_UP, S.ON_THE_WAY):
         return driver_pickup(order, driver)
-    if target_status == S.DELIVERED:
-        return driver_deliver(order, driver)
+    if target_status in (S.ARRIVED, S.DELIVERED):
+        return driver_arrive(order, driver)
     raise TransitionError("Statut non autorisé pour un livreur.")

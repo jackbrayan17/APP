@@ -153,6 +153,8 @@ IOS_APP_ID = os.environ.get("IOS_APP_ID", "TEAMID.com.oneeat.app")
 DELIVERY_RADIUS_KM = 10          # perimetre livreur
 DEFAULT_CITY = "Douala"
 DEFAULT_COUNTRY = "Cameroun"
+# Les pages ne peuvent s'afficher que dans un cadre du meme site (page /design et outils internes).
+X_FRAME_OPTIONS = "SAMEORIGIN"
 CURRENCY = "FCFA"
 PLATFORM_COMMISSION_PERCENT = int(os.environ.get("PLATFORM_COMMISSION_PERCENT", "10"))
 

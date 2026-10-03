@@ -17,12 +17,20 @@ class InfluencerProfileAdmin(admin.ModelAdmin):
     search_fields = ("handle", "user__username")
 
 
+@admin.action(description="Valider les codes sélectionnés")
+def approve_codes(modeladmin, request, queryset):
+    from django.utils import timezone
+    queryset.update(status=PromoCode.Status.APPROVED, validated_by=request.user,
+                    validated_at=timezone.now(), rejection_reason="")
+
+
 @admin.register(PromoCode)
 class PromoCodeAdmin(admin.ModelAdmin):
     list_display = ("code", "influencer", "restaurant", "percent", "uses",
-                    "max_uses", "is_active")
-    list_filter = ("is_active", "restaurant")
+                    "max_uses", "status", "is_active")
+    list_filter = ("status", "is_active", "restaurant")
     search_fields = ("code",)
+    actions = [approve_codes]
 
 
 @admin.register(PromoCodeRedemption)

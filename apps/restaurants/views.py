@@ -8,14 +8,21 @@ from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import User
+from apps.core.inputs import clean_float, clean_int, clean_phone
 from apps.orders.models import Order, OrderItem
 from apps.orders.workflow import (RESTAURANT_ACTIONS, TransitionError, restaurant_action,
                                   restaurant_next_actions)
 from apps.promotions.models import Promotion
-from .models import WEEKDAYS, Restaurant, Category, MenuSection, Dish, RestaurantPhoto, Favorite
+from .models import (WEEKDAYS, Restaurant, Sector, Category, MenuSection, Dish, DishOption,
+                     RestaurantPhoto, Favorite)
+
+MAX_PRICE = 1_000_000  # FCFA : plafond d'un plat (au-dela, c'est une faute de frappe)
+MAX_DELIVERY_FEE = 50_000
+MAX_OPTION_PRICE = 50_000
 
 
 def _cart_count(request):
@@ -78,10 +85,12 @@ def dish_detail(request, dish_id):
                .order_by("-is_popular", "name")[:4])
     is_favorite = (request.user.is_authenticated and
                    Favorite.objects.filter(user=request.user, restaurant=resto).exists())
+    options = list(dish.available_options)
     return render(request, "client/dish_detail.html", {
         "dish": dish,
         "resto": resto,
         "related": related,
+        "options": options,
         "is_favorite": is_favorite,
         "cart_count": _cart_count(request),
     })
@@ -101,6 +110,26 @@ def restaurant_share(request, token):
 # ---------------- Dashboard restaurant ----------------
 def _owner_resto(request):
     return Restaurant.objects.filter(owner=request.user).first()
+
+
+def _sector_categories(resto):
+    """Categories proposees pour les plats : uniquement celles du secteur du restaurant."""
+    if not resto or not resto.sector_id:
+        return Category.objects.none()
+    return Category.objects.filter(sector_id=resto.sector_id)
+
+
+def dish_options_json(request, dish_id):
+    """Fiche rapide d'un plat pour la feuille de choix (complements, boissons, prix)."""
+    dish = get_object_or_404(Dish.objects.select_related("restaurant"), id=dish_id,
+                             is_available=True, restaurant__is_active=True)
+    return JsonResponse({
+        "id": dish.id, "name": dish.name, "description": dish.description,
+        "restaurant": dish.restaurant.name, "price": dish.current_price,
+        "image": dish.image.url if dish.image else "",
+        "options": [{"id": o.id, "group": o.group or "Suppléments", "name": o.name, "price": o.price}
+                    for o in dish.available_options],
+    })
 
 
 @login_required
@@ -191,7 +220,7 @@ def menu_manage(request):
     context = {
         "resto": resto,
         "sections": resto.sections.prefetch_related("dishes").all(),
-        "categories": Category.objects.all(),
+        "categories": _sector_categories(resto),
         "dishes": dishes,
         "dishes_data": {d.id: {f: getattr(d, f) for f in fields} for d in dishes},
         "unsectioned": dishes.filter(section__isnull=True),
@@ -209,24 +238,22 @@ def dish_save(request):
     dish = Dish.objects.filter(id=dish_id, restaurant=resto).first() if dish_id else Dish(restaurant=resto)
     dish.name = request.POST.get("name", dish.name)
     dish.description = request.POST.get("description", "")
-    try:
-        dish.price = max(0, int(request.POST.get("price") or 0))
-    except ValueError:
-        messages.error(request, "Prix invalide.")
+    price = clean_int(request.POST.get("price"), lo=1, hi=MAX_PRICE)
+    if price is None:
+        messages.error(request, f"Prix invalide : entier entre 1 et {MAX_PRICE:,} FCFA.".replace(",", " "))
         return redirect("restaurants:menu")
-    dish.prep_time = int(request.POST.get("prep_time") or 20)
+    dish.price = price
+    dish.prep_time = clean_int(request.POST.get("prep_time"), default=20, lo=1, hi=240)
     dish.is_diet = request.POST.get("is_diet") == "on"
-    raw_kcal = request.POST.get("calories", "")
-    dish.calories = int(raw_kcal) if raw_kcal.isdigit() else None
+    dish.calories = clean_int(request.POST.get("calories"), lo=0, hi=5000)
     for field in ("protein_grams", "carbs_grams", "fat_grams", "fiber_grams"):
-        raw = request.POST.get(field, "")
-        setattr(dish, field, int(raw) if raw.isdigit() else None)
+        setattr(dish, field, clean_int(request.POST.get(field), lo=0, hi=2000))
     dish.dietary_tags = request.POST.get("dietary_tags", "")
     dish.dietary_note = request.POST.get("dietary_note", "")
     section_id = request.POST.get("section")
     dish.section = MenuSection.objects.filter(id=section_id, restaurant=resto).first() if section_id else None
     cat_id = request.POST.get("category")
-    dish.category = Category.objects.filter(id=cat_id).first() if cat_id else None
+    dish.category = _sector_categories(resto).filter(id=cat_id).first() if cat_id else None
     dish.is_popular = request.POST.get("is_popular") == "on"
     dish.is_available = request.POST.get("is_available", "on") == "on"
     if request.FILES.get("image"):
@@ -252,8 +279,8 @@ def dish_delete(request, dish_id):
 def section_save(request):
     resto = _owner_resto(request)
     MenuSection.objects.create(
-        restaurant=resto, name=request.POST.get("name", "Nouvelle section"),
-        order=int(request.POST.get("order") or 0))
+        restaurant=resto, name=request.POST.get("name", "Nouvelle section")[:120] or "Nouvelle section",
+        order=clean_int(request.POST.get("order"), default=0, lo=0, hi=999))
     return redirect("restaurants:menu")
 
 
@@ -269,14 +296,36 @@ def customize(request):
         resto.accent_color = request.POST.get("accent_color", resto.accent_color)
         resto.neighborhood = request.POST.get("neighborhood", resto.neighborhood)
         resto.address = request.POST.get("address", resto.address)
-        lat, lng = request.POST.get("lat"), request.POST.get("lng")
-        if lat and lng:
-            resto.lat, resto.lng = float(lat), float(lng)
-        resto.delivery_fee = int(request.POST.get("delivery_fee") or resto.delivery_fee)
-        resto.delivery_time_min = int(request.POST.get("delivery_time_min") or resto.delivery_time_min)
-        resto.delivery_time_max = int(request.POST.get("delivery_time_max") or resto.delivery_time_max)
-        resto.min_order = int(request.POST.get("min_order") or 0)
-        resto.phone = request.POST.get("phone", resto.phone)
+        lat = clean_float(request.POST.get("lat"), lo=-90, hi=90)
+        lng = clean_float(request.POST.get("lng"), lo=-180, hi=180)
+        if lat is not None and lng is not None:
+            resto.lat, resto.lng = lat, lng
+        # Chaque champ numerique invalide garde sa valeur actuelle (jamais de faux chiffre enregistre).
+        numeric = {
+            "delivery_fee": ("delivery_fee", dict(lo=0, hi=MAX_DELIVERY_FEE)),
+            "delivery_time_min": ("delivery_time_min", dict(lo=0, hi=240)),
+            "delivery_time_max": ("delivery_time_max", dict(lo=0, hi=240)),
+            "max_orders_per_day": ("max_orders_per_day", dict(lo=0, hi=100_000)),
+        }
+        rejected = []
+        for field, (attr, bounds) in numeric.items():
+            raw = request.POST.get(field, "").strip()
+            if raw == "":
+                continue
+            value = clean_int(raw, **bounds)
+            if value is None:
+                rejected.append(field)
+            else:
+                setattr(resto, attr, value)
+        raw_phone = request.POST.get("phone", "")
+        phone = clean_phone(raw_phone)
+        if phone is None:
+            rejected.append("phone")
+        else:
+            resto.phone = phone
+        if rejected:
+            messages.error(request, "Valeurs non enregistrées (chiffres entiers, ou téléphone à 8-15 chiffres) : "
+                           + ", ".join(rejected) + ".")
         if request.POST.get("hours_form") == "1":
             hours = {}
             for d in range(7):
@@ -289,16 +338,15 @@ def customize(request):
         if request.FILES.get("cover_image"):
             resto.cover_image = request.FILES["cover_image"]
         resto.save()
-        # categories
-        cat_ids = request.POST.getlist("categories")
-        if cat_ids:
-            resto.categories.set(Category.objects.filter(id__in=cat_ids))
+        sector_id = request.POST.get("sector")
+        resto.sector = Sector.objects.filter(id=sector_id).first() if sector_id else None
+        resto.save(update_fields=["sector"])
         for f in request.FILES.getlist("gallery"):
             RestaurantPhoto.objects.create(restaurant=resto, image=f)
         messages.success(request, "Page du restaurant mise a jour.")
         return redirect("restaurants:customize")
     return render(request, "restaurant_dashboard/customize.html",
-                  {"resto": resto, "categories": Category.objects.all()})
+                  {"resto": resto, "sectors": Sector.objects.all()})
 
 
 @login_required
@@ -332,7 +380,8 @@ ORDER_TABS = [
     ("new", "Nouvelles", [Order.Status.PENDING]),
     ("kitchen", "En cuisine", [Order.Status.CONFIRMED, Order.Status.PREPARING]),
     ("ready", "Prêtes", [Order.Status.READY]),
-    ("delivery", "En livraison", [Order.Status.PICKED_UP, Order.Status.ON_THE_WAY]),
+    ("delivery", "En livraison", [Order.Status.PICKED_UP, Order.Status.ON_THE_WAY,
+                                  Order.Status.ARRIVED]),
     ("done", "Terminées", [Order.Status.DELIVERED, Order.Status.CANCELLED]),
 ]
 
@@ -416,18 +465,92 @@ def promos_manage(request):
     if not resto:
         return redirect("restaurants:onboarding")
     if request.method == "POST":
+        discount_type = request.POST.get("discount_type", "percent")
+        if discount_type not in Promotion.DiscountType.values:
+            discount_type = Promotion.DiscountType.PERCENT
+        value = clean_int(request.POST.get("discount_value"), lo=1, hi=MAX_PRICE)
+        if value is None or (discount_type == Promotion.DiscountType.PERCENT and value > 100):
+            messages.error(request, "Valeur de remise invalide : entier de 1 à 100 pour un pourcentage, "
+                                    "montant FCFA entier sinon.")
+            return redirect("restaurants:promos")
+        ends_at = parse_datetime(request.POST.get("ends_at", "") or "")
+        if ends_at is None:
+            ends_at = timezone.now() + timedelta(days=7)
+        elif timezone.is_naive(ends_at):
+            ends_at = timezone.make_aware(ends_at)
         promo = Promotion.objects.create(
             restaurant=resto,
-            title=request.POST.get("title", "Promo"),
+            title=request.POST.get("title", "Promo")[:120] or "Promo",
             description=request.POST.get("description", ""),
-            discount_type=request.POST.get("discount_type", "percent"),
-            discount_value=int(request.POST.get("discount_value") or 0),
-            ends_at=request.POST.get("ends_at") or timezone.now() + timezone.timedelta(days=7),
+            discount_type=discount_type,
+            discount_value=value,
+            ends_at=ends_at,
         )
-        dish_ids = request.POST.getlist("dishes")
-        promo.dishes.set(resto.dishes.filter(id__in=dish_ids))
+        if request.POST.get("all_dishes") == "on":
+            promo.dishes.set(resto.dishes.all())
+        else:
+            dish_ids = request.POST.getlist("dishes")
+            promo.dishes.set(resto.dishes.filter(id__in=dish_ids))
         messages.success(request, "Promotion lancee !")
         return redirect("restaurants:promos")
+    from apps.promotions.models import InfluencerProfile, PromoCode
     return render(request, "restaurant_dashboard/promos.html",
                   {"resto": resto, "promos": resto.promotions.all(),
-                   "dishes": resto.dishes.all()})
+                   "dishes": resto.dishes.all(),
+                   "influencers": InfluencerProfile.objects.select_related("user").all(),
+                   "influencer_codes": PromoCode.objects.filter(restaurant=resto)
+                                                       .select_related("influencer__user")})
+
+
+@login_required
+def dish_options(request, dish_id):
+    """Gestion des complements et supplements d'un plat (boissons, extras...)."""
+    resto = _owner_resto(request)
+    if not resto:
+        return redirect("restaurants:onboarding")
+    dish = get_object_or_404(Dish, id=dish_id, restaurant=resto)
+    return render(request, "restaurant_dashboard/dish_options.html", {
+        "resto": resto, "dish": dish, "options": dish.options.all(),
+        "group_suggestions": ["Boissons", "Suppléments", "Sauces", "Accompagnements"],
+    })
+
+
+@login_required
+@require_POST
+def option_save(request, dish_id):
+    resto = _owner_resto(request)
+    if not resto:
+        return redirect("restaurants:onboarding")
+    dish = get_object_or_404(Dish, id=dish_id, restaurant=resto)
+    name = " ".join(request.POST.get("name", "").split())[:80]
+    price = clean_int(request.POST.get("price") or "0", lo=0, hi=MAX_OPTION_PRICE)
+    if not name:
+        messages.error(request, "Donnez un nom au complément.")
+    elif price is None:
+        messages.error(request, f"Prix invalide : entier entre 0 et {MAX_OPTION_PRICE:,} FCFA (0 = offert)."
+                       .replace(",", " "))
+    else:
+        group = " ".join(request.POST.get("group", "").split())[:40] or "Suppléments"
+        DishOption.objects.create(
+            dish=dish, name=name, group=group, price=price,
+            order=clean_int(request.POST.get("order"), default=0, lo=0, hi=999))
+        messages.success(request, f"Complément « {name} » ajouté.")
+    return redirect("restaurants:dish_options", dish_id=dish.id)
+
+
+@login_required
+@require_POST
+def option_update(request, option_id):
+    resto = _owner_resto(request)
+    if not resto:
+        return redirect("restaurants:onboarding")
+    option = get_object_or_404(DishOption, id=option_id, dish__restaurant=resto)
+    action = request.POST.get("action")
+    if action == "delete":
+        option.delete()
+        messages.success(request, "Complément supprimé.")
+    elif action == "toggle":
+        option.is_available = not option.is_available
+        option.save(update_fields=["is_available", "updated_at"])
+        messages.success(request, "Complément mis à jour.")
+    return redirect("restaurants:dish_options", dish_id=option.dish_id)

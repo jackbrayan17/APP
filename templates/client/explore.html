@@ -22,7 +22,7 @@
   {% if dishes %}
   <section>
     <h2 class="font-extrabold text-gray-900 mb-2">{% if q %}Plats trouvés{% else %}Plats populaires{% endif %}</h2>
-    <div class="space-y-1 bg-white rounded-2xl px-3 border border-gray-100">
+    <div class="space-y-1 bg-white rounded-2xl px-3 border border-gray-100 md:grid md:grid-cols-2 md:gap-x-6 md:space-y-0">
       {% for dish in dishes %}
         {% include "client/_dish_row.html" with dish=dish %}
       {% endfor %}
@@ -30,15 +30,15 @@
   </section>
   {% endif %}
 
-  <section class="space-y-4">
-  <h2 class="font-extrabold text-gray-900">Restaurants</h2>
+  <section class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
+  <h2 class="font-extrabold text-gray-900 md:col-span-full">Restaurants</h2>
   {% for r in restaurants %}
   <a href="{% url 'restaurants:detail' r.slug %}" class="block">
-    <div class="relative h-[200px] rounded-2xl overflow-hidden bg-gray-200">
+    <div class="relative h-[200px] md:h-[170px] rounded-2xl overflow-hidden bg-gray-200">
       {% if r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover">
       {% elif r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover">
       {% else %}<div class="w-full h-full bg-gradient-to-br from-brand to-orange-300"></div>{% endif %}
-      <span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-brand text-white text-xs font-bold">{% if r.is_featured %}Populaire{% else %}{{ r.tagline|default:"Restaurant" }}{% endif %}</span>
+      <span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-brand text-white text-xs font-bold">{% if r.is_featured %}Populaire{% else %}{% if r.tagline %}{{ r.tagline }}{% else %}<span data-i18n="top_restaurants">Top Restaurants dans la ville</span>{% endif %}{% endif %}</span>
     </div>
     <div class="mt-2">
       <h3 class="font-bold text-gray-900 text-lg">{{ r.name }}</h3>
@@ -50,7 +50,7 @@
     </div>
   </a>
   {% empty %}
-  <p class="text-center text-gray-400 py-12">Aucun restaurant pour « {{ q }} ».</p>
+  <p class="text-center text-gray-400 py-12 md:col-span-full">Aucun restaurant pour « {{ q }} ».</p>
   {% endfor %}
   </section>
 </div>

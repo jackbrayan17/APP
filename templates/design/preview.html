@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Design responsive — ONE EAT{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block shell_class %}dash{% endblock %}
+{% block head %}
+<style>
+  .dz-frame{ width:100%; height:640px; border:0; background:#fff; }
+  .dz-card.ko{ border-color:#fca5a5; }
+  .dz-card.ok{ border-color:#bbf7d0; }
+  .dz-scroll{ overflow-x:auto; overscroll-behavior-x:contain; }
+  .dz-width-btn[aria-pressed="true"]{ background:#111827; color:#fff; }
+</style>
+{% endblock %}
+{% block body %}
+<main class="px-4 py-5 md:px-6 md:py-8 lg:px-8">
+  <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div class="min-w-0">
+      <p class="text-[11px] font-bold uppercase tracking-wider text-brand">Contrôle responsive</p>
+      <h1 class="mt-1 text-2xl md:text-3xl font-black text-gray-900">Tous les écrans · /design</h1>
+      <p class="mt-1 text-sm text-gray-500">Chaque écran est chargé dans un cadre à la largeur choisie. Le test signale tout débordement horizontal et tout élément qui sort de l'écran.</p>
+    </div>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div class="flex flex-wrap gap-1.5" role="group" aria-label="Largeur d'écran">
+        {% for w in widths %}
+        <button type="button" class="dz-width-btn rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700" data-width="{{ w }}" aria-pressed="{% if forloop.counter == 2 %}true{% else %}false{% endif %}">{{ w }}px</button>
+        {% endfor %}
+      </div>
+      <button type="button" id="dz-run-all" class="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white shadow-lg shadow-brand/25">Tester tous les formats</button>
+    </div>
+  </header>
+
+  <section id="dz-summary" class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4" aria-live="polite">
+    <div class="rounded-2xl bg-gray-50 p-4"><p class="text-2xl font-black tabular" id="dz-total">0</p><p class="text-xs text-gray-500">contrôles réalisés</p></div>
+    <div class="rounded-2xl bg-emerald-50 p-4"><p class="text-2xl font-black tabular text-emerald-700" id="dz-ok">0</p><p class="text-xs text-emerald-700">sans débordement</p></div>
+    <div class="rounded-2xl bg-red-50 p-4"><p class="text-2xl font-black tabular text-red-600" id="dz-ko">0</p><p class="text-xs text-red-600">à corriger</p></div>
+    <div class="rounded-2xl bg-gray-50 p-4"><p class="text-2xl font-black tabular text-gray-700" id="dz-skip">{{ external_count }}</p><p class="text-xs text-gray-500">écrans à tester avec leur compte</p></div>
+  </section>
+
+  {% regroup screens by role as groups %}
+  {% for group in groups %}
+  <section class="mt-8">
+    <h2 class="text-sm font-extrabold uppercase tracking-wider text-gray-500">{{ group.grouper }}</h2>
+    <div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {% for s in group.list %}
+      <article class="dz-card min-w-0 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm" data-url="{{ s.url }}" data-frame="{{ s.frame|yesno:'1,0' }}">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <h3 class="truncate text-sm font-bold text-gray-900">{{ s.label }}</h3>
+            <p class="truncate text-[11px] text-gray-400">{{ s.url }}</p>
+          </div>
+          <span class="dz-badge flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500">{% if s.frame %}en attente{% else %}compte {{ s.role|lower }}{% endif %}</span>
+        </div>
+        {% if s.frame %}
+        <div class="dz-scroll mt-3 rounded-xl border border-gray-100 bg-gray-50">
+          <iframe class="dz-frame" title="Aperçu {{ s.label }}" loading="lazy" tabindex="-1"></iframe>
+        </div>
+        <p class="dz-detail mt-2 text-xs text-gray-500"></p>
+        {% else %}
+        <p class="mt-3 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">Cet écran s'affiche avec un compte « {{ s.role|lower }} ». Ouvrez-le avec ce compte pour le tester : <a class="font-bold text-brand" href="{{ s.url }}" target="_blank" rel="noopener">ouvrir l'écran</a>.</p>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</main>
+
+<script>
+(function () {
+  var current = 375;
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.dz-card[data-frame="1"]'));
+  var results = {};
+  var queue = [];
+  var busy = false;
+
+  function setWidth(w) {
+    current = w;
+    document.querySelectorAll('.dz-width-btn').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.width) === w));
+    });
+    cards.forEach(function (c) { queue.push({ card: c, width: w }); });
+    pump();
+  }
+
+  // Mesure le cadre charge : debordement horizontal + elements hors ecran (hors zones de defilement voulues).
+  function measure(frame) {
+    var doc = frame.contentDocument;
+    if (!doc || !doc.documentElement) return { error: 'page non lisible' };
+    var root = doc.documentElement;
+    var vw = root.clientWidth;
+    var overflow = root.scrollWidth - vw;
+    var offenders = [];
+    var all = doc.querySelectorAll('body *');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      var r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      // Tiroirs et barres fixes : hors de l'ecran par conception quand ils sont fermes.
+      var fx = el, inFixed = false;
+      while (fx && fx !== doc.body) {
+        if (doc.defaultView.getComputedStyle(fx).position === 'fixed') { inFixed = true; break; }
+        fx = fx.parentElement;
+      }
+      if (inFixed) continue;
+      if (r.right > vw + 1 || r.left < -1) {
+        var p = el.parentElement, inScroller = false;
+        while (p && p !== doc.body) {
+          var ps = doc.defaultView.getComputedStyle(p);
+          if (/(auto|scroll|hidden|clip)/.test(ps.overflowX) && p.scrollWidth > p.clientWidth + 1) { inScroller = true; break; }
+          p = p.parentElement;
+        }
+        if (!inScroller) offenders.push((el.tagName + (el.id ? '#' + el.id : '')).toLowerCase());
+      }
+    }
+    return { overflow: overflow, offenders: offenders };
+  }
+
+  function show(card, width, res) {
+    var badge = card.querySelector('.dz-badge');
+    var detail = card.querySelector('.dz-detail');
+    var ok = !res.error && res.overflow <= 1 && res.offenders.length === 0;
+    card.classList.toggle('ok', ok);
+    card.classList.toggle('ko', !ok);
+    badge.textContent = res.error ? 'illisible' : ok ? 'OK ' + width + 'px' : 'à corriger ' + width + 'px';
+    badge.className = 'dz-badge flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ' +
+      (ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700');
+    detail.textContent = res.error ? res.error :
+      ok ? 'Aucun débordement.' :
+      'Débordement : ' + res.overflow + ' px' + (res.offenders.length ? ' · éléments : ' + res.offenders.slice(0, 4).join(', ') : '');
+    results[card.dataset.url + '@' + width] = ok;
+    window.dzDetails = window.dzDetails || {};
+    window.dzDetails[card.dataset.url + '@' + width] = detail.textContent;
+    refreshSummary();
+  }
+
+  function refreshSummary() {
+    var keys = Object.keys(results);
+    var ok = keys.filter(function (k) { return results[k]; }).length;
+    document.getElementById('dz-total').textContent = keys.length;
+    document.getElementById('dz-ok').textContent = ok;
+    document.getElementById('dz-ko').textContent = keys.length - ok;
+  }
+
+  function pump() {
+    if (busy || !queue.length) return;
+    busy = true;
+    var job = queue.shift();
+    var frame = job.card.querySelector('iframe');
+    frame.style.width = job.width + 'px';
+    frame.style.maxWidth = 'none';
+    var finished = false;
+    function finish(res) {
+      if (finished) return;
+      finished = true;
+      show(job.card, job.width, res);
+      busy = false;
+      pump();
+    }
+    frame.onload = function () {
+      // Laisse le temps aux scripts (Tailwind, Alpine) de finir le rendu.
+      setTimeout(function () { finish(measure(frame)); }, 900);
+    };
+    // Filet de securite : un cadre qui ne charge jamais ne bloque pas la file.
+    setTimeout(function () { finish({ error: 'chargement trop long' }); }, 20000);
+    frame.src = job.card.dataset.url + (job.card.dataset.url.indexOf('?') > -1 ? '&' : '?') + 'dz=' + job.width;
+  }
+
+  document.querySelectorAll('.dz-width-btn').forEach(function (b) {
+    b.addEventListener('click', function () { setWidth(Number(b.dataset.width)); });
+  });
+  document.getElementById('dz-run-all').addEventListener('click', function () {
+    [320, 375, 414, 768, 1024, 1440].forEach(function (w) {
+      cards.forEach(function (c) { queue.push({ card: c, width: w }); });
+    });
+    pump();
+  });
+
+  if (cards.length) setWidth(current);
+})();
+</script>
+{% endblock %}

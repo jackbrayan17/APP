@@ -5,7 +5,7 @@
 <div class="px-5 pt-6 pb-10" x-data="{ step:'wait', seconds:0, t:null,
      start(){ this.t=setInterval(()=>{ this.seconds++; if(this.seconds>=4 && this.step==='wait'){ this.step='ready'; } },1000); } }" x-init="start()">
   <div class="flex items-center justify-between">
-    <a href="{% url 'orders:cart' %}" class="text-sm font-bold text-gray-500">← Panier</a>
+    <a href="{% url 'orders:cart' %}" data-oe-back class="text-sm font-bold text-gray-500">← Retour</a>
     <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">Mode démo · aucun débit réel</span>
   </div>
 

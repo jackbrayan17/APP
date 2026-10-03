@@ -2,10 +2,12 @@
 {% load static humanize %}
 {% block title %}Espace Livreur — ONE EAT{% endblock %}
 {% block robots %}noindex, nofollow{% endblock %}
+{% block shell_class %}safe-bottom dash{% endblock %}
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   #map{ height:220px; border-radius:1.25rem; z-index:0; background:#eef2f7; }
+  @media (min-width:1024px){ #map{ height:420px; } }
   .driver-pin{ width:18px; height:18px; border-radius:999px; background:#FF6B1A; border:3px solid #fff; box-shadow:0 8px 20px rgba(0,0,0,.22); }
   .ring-track{ stroke:#f3f4f6; } .ring-bar{ stroke:#FF6B1A; transition:stroke-dashoffset 1s linear; }
 </style>
@@ -31,7 +33,7 @@
 </header>
 
 {% if messages %}{% endif %}
-<main class="px-4 py-4 pb-10">
+<main class="px-4 py-4 pb-10 md:px-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:px-8">
   <!-- Gains -->
   <section class="rounded-3xl bg-gray-900 p-5 text-white">
     <p class="text-[11px] font-bold uppercase tracking-wider text-white/50">Gains aujourd'hui</p>
@@ -53,7 +55,7 @@
       <span class="text-xs font-bold text-gray-400 tabular">{{ o.number }} · +{{ o.delivery_fee|intcomma }} FCFA</span>
     </div>
 
-    {% if o.status != 'on_the_way' %}
+    {% if o.status != 'on_the_way' and o.status != 'arrived' %}
     <div class="mt-3 flex gap-3">
       <span class="mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">1</span>
       <div class="min-w-0 flex-1">
@@ -88,10 +90,21 @@
           <a href="{% url 'delivery:order_map' o.number %}" class="rounded-xl bg-gray-100 py-2.5 text-center text-xs font-bold text-gray-800">Carte live</a>
           {% if o.customer.phone %}<a href="tel:{{ o.customer.phone }}" class="rounded-xl bg-gray-100 py-2.5 text-center text-xs font-bold text-gray-800">Appeler</a>{% endif %}
         </div>
-        <form method="post" action="{% url 'delivery:update_status' o.id %}" class="mt-2" onsubmit="return confirm('Confirmer la remise de la commande au client ?')">{% csrf_token %}
-          <input type="hidden" name="action" value="deliver">
-          <button class="w-full rounded-2xl bg-brand py-3.5 font-bold text-white shadow-lg shadow-brand/25">Confirmer la livraison</button>
+        {% if o.status == 'arrived' %}
+        <p class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">✓ Arrivée signalée. En attente de la validation du client.</p>
+        {% else %}
+        <form method="post" action="{% url 'delivery:update_status' o.id %}" class="mt-2" onsubmit="return confirm('Confirmer votre arrivée chez le client ?')">{% csrf_token %}
+          <input type="hidden" name="action" value="arrive">
+          <button class="w-full rounded-2xl bg-brand py-3.5 font-bold text-white shadow-lg shadow-brand/25">Je suis arrivé chez le client</button>
         </form>
+        {% endif %}
+        {% if mission_qr %}
+        <div class="mt-4 rounded-2xl border border-gray-100 p-4 text-center">
+          <p class="text-sm font-bold text-gray-900">Le client scanne ce QR code</p>
+          <img src="{{ mission_qr }}" alt="QR code de validation de la livraison" class="mx-auto mt-2 h-44 w-44">
+          <p class="mt-1 text-xs text-gray-500">Ou il saisit le code à 4 chiffres affiché sur son application.</p>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endif %}

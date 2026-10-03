@@ -75,8 +75,19 @@
     body{ font-family:'Inter',system-ui,sans-serif; background:#f8f8f8; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-    .app-shell{ max-width:480px; margin:0 auto; background:#fff; min-height:100dvh;
+    /* Largeur de la coque : telephone (480) -> tablette -> ordinateur. Les barres fixes
+       reprennent la meme variable (max-w-[var(--shell-w)]) pour rester alignees. */
+    .app-shell{ --shell-w:480px; max-width:var(--shell-w); margin:0 auto; background:#fff; min-height:100dvh;
       position:relative; box-shadow:0 0 40px rgba(0,0,0,.06); }
+    @media (min-width:768px){ .app-shell{ --shell-w:760px; } }
+    @media (min-width:1024px){ .app-shell{ --shell-w:1040px; } }
+    @media (min-width:1440px){ .app-shell{ --shell-w:1200px; } }
+    /* Espaces de gestion (restaurant, livreur, influenceur, admin) : plus larges, en grilles. */
+    .app-shell.dash{ --shell-w:480px; }
+    @media (min-width:768px){ .app-shell.dash{ --shell-w:840px; } }
+    @media (min-width:1024px){ .app-shell.dash{ --shell-w:1120px; } }
+    @media (min-width:1440px){ .app-shell.dash{ --shell-w:1320px; } }
+    img,video{ max-width:100%; }
     .safe-bottom{ padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
     [x-cloak]{ display:none !important; }
     @keyframes pop { 0%{transform:scale(.9)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
@@ -88,9 +99,10 @@
     @keyframes pulseRing { 0%{ box-shadow:0 0 0 0 rgba(255,107,26,.45) } 100%{ box-shadow:0 0 0 14px rgba(255,107,26,0) } }
     .pulse-ring{ animation:pulseRing 1.6s infinite; }
   </style>
+  <link rel="stylesheet" href="{% static 'css/oe-fx.css' %}?v=1">
   {% block head %}{% endblock %}
 </head>
-<body class="h-full">
+<body class="h-full" data-oe-role="{% if user.is_authenticated %}{{ user.role }}{% else %}guest{% endif %}">
   <div class="app-shell {% block shell_class %}{% endblock %}">
 
     {# ---- Bannière d'installation PWA (iOS / Android auto-détecté) ---- #}
@@ -132,7 +144,55 @@
   </div>
 
   {% block scripts %}{% endblock %}
+  {% include 'client/_options_sheet.html' %}
   <script src="{% static 'js/app.js' %}"></script>
+
+  <script>
+  /* ---- Parcours de navigation : le bouton retour revient a la page precedente (pas a l'accueil) ---- */
+  (function () {
+    var KEY = 'oe_trail', MAX = 30;
+    function here() { return location.pathname + location.search; }
+    function read() {
+      try { return JSON.parse(sessionStorage.getItem(KEY)) || []; } catch (e) { return []; }
+    }
+    function write(trail) {
+      try { sessionStorage.setItem(KEY, JSON.stringify(trail.slice(-MAX))); } catch (e) {}
+    }
+
+    // Enregistre la page courante ; si on vient d'un retour navigateur, on depile.
+    var trail = read(), current = here();
+    var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    var cameBack = nav && nav.type === 'back_forward';
+    if (cameBack && trail.length > 1 && trail[trail.length - 2] === current) {
+      trail.pop();
+    } else if (trail[trail.length - 1] !== current) {
+      trail.push(current);
+    }
+    write(trail);
+
+    // Retour : page precedente du parcours, sinon le repli indique sur le lien.
+    document.addEventListener('click', function (e) {
+      var el = e.target.closest('[data-oe-back]');
+      if (!el) return;
+      var fallback = el.getAttribute('href') || el.dataset.fallback || '/';
+      var trail = read(), current = here();
+      while (trail.length && trail[trail.length - 1] === current) trail.pop();
+      var previous = trail[trail.length - 1];
+      e.preventDefault();
+      if (previous) {
+        trail.pop();
+        write(trail);
+        location.href = previous;
+      } else {
+        location.href = fallback;
+      }
+    });
+  })();
+  </script>
+  <script src="{% static 'js/oe-i18n.js' %}?v=1"></script>
+  <script src="{% static 'js/oe-fx.js' %}?v=1"></script>
+  <script src="{% static 'js/oe-tour.js' %}?v=1"></script>
+  <script src="{% static 'js/oe-options.js' %}?v=1"></script>
 
   <script>
   /* ---- Bannière d'installation PWA (iOS / Android) ---- */

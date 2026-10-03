@@ -1,82 +1,101 @@
 {% extends "restaurant_dashboard/base.html" %}
 {% block title %}Ma page — {{ resto.name }}{% endblock %}
 {% block dash %}
-<h2 class="font-extrabold text-lg text-gray-900">Personnaliser ma page</h2>
-<form method="post" enctype="multipart/form-data" class="mt-4 space-y-4"
+<h2 class="font-extrabold text-lg md:text-2xl text-gray-900">Personnaliser ma page</h2>
+<form method="post" enctype="multipart/form-data" class="mt-4 space-y-4 md:mt-6 md:space-y-6 max-w-4xl"
       x-data="{ locate(){ OE.getLocation().then(p=>{ $refs.lat.value=p.lat; $refs.lng.value=p.lng; $refs.loc.textContent=p.lat.toFixed(4)+', '+p.lng.toFixed(4); }); } }">
   {% csrf_token %}
   <input type="hidden" name="lat" x-ref="lat" value="{{ resto.lat|default:'' }}">
   <input type="hidden" name="lng" x-ref="lng" value="{{ resto.lng|default:'' }}">
 
-  <div>
-    <label class="text-sm font-semibold text-gray-700">Badge / Tagline</label>
-    <input name="tagline" value="{{ resto.tagline }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-  </div>
-  <div>
-    <label class="text-sm font-semibold text-gray-700">Bio</label>
-    <textarea name="bio" rows="3" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">{{ resto.bio }}</textarea>
-  </div>
-
-  <div class="grid grid-cols-2 gap-3">
-    <div><label class="text-sm font-semibold text-gray-700">Couleur principale</label>
-      <input name="brand_color" type="color" value="{{ resto.brand_color }}" class="mt-1 h-12 w-full rounded-xl"></div>
-    <div><label class="text-sm font-semibold text-gray-700">Couleur secondaire</label>
-      <input name="accent_color" type="color" value="{{ resto.accent_color }}" class="mt-1 h-12 w-full rounded-xl"></div>
-  </div>
-
-  <div>
-    <label class="text-sm font-semibold text-gray-700">Logo</label>
-    <input name="logo" type="file" accept="image/*" class="mt-1 w-full text-sm">
-  </div>
-  <div>
-    <label class="text-sm font-semibold text-gray-700">Image de couverture</label>
-    <input name="cover_image" type="file" accept="image/*" class="mt-1 w-full text-sm">
-  </div>
-  <div>
-    <label class="text-sm font-semibold text-gray-700">Galerie photos (multiple)</label>
-    <input name="gallery" type="file" accept="image/*" multiple class="mt-1 w-full text-sm">
-  </div>
-
-  <div>
-    <p class="text-sm font-semibold text-gray-700 mb-1">Catégories</p>
-    <div class="flex flex-wrap gap-2">
-      {% for c in categories %}
-      <label class="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-gray-100">
-        <input type="checkbox" name="categories" value="{{ c.id }}" {% if c in resto.categories.all %}checked{% endif %}> {{ c.emoji }} {{ c.name }}</label>
-      {% endfor %}
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700" for="f-tagline">Badge / Tagline</label>
+      <input id="f-tagline" name="tagline" value="{{ resto.tagline }}" maxlength="120" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </div>
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700" for="f-bio">Bio</label>
+      <textarea id="f-bio" name="bio" rows="3" maxlength="500" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">{{ resto.bio }}</textarea>
+      <p class="mt-1 text-[11px] text-gray-400">500 caractères maximum.</p>
     </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-3">
-    <div><label class="text-sm font-semibold text-gray-700">Quartier</label>
-      <input name="neighborhood" value="{{ resto.neighborhood }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></div>
-    <div><label class="text-sm font-semibold text-gray-700">Frais livraison</label>
-      <input name="delivery_fee" type="number" value="{{ resto.delivery_fee }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></div>
-  </div>
-  <input name="address" value="{{ resto.address }}" placeholder="Adresse" class="w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-  <div class="grid grid-cols-2 gap-3">
-    <input name="delivery_time_min" type="number" value="{{ resto.delivery_time_min }}" placeholder="Délai min" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
-    <input name="delivery_time_max" type="number" value="{{ resto.delivery_time_max }}" placeholder="Délai max" class="px-4 py-3 rounded-xl bg-gray-100 focus:outline-none">
+  <div class="grid grid-cols-2 gap-3 md:gap-5">
+    <div class="min-w-0"><label class="text-sm font-semibold text-gray-700">Couleur principale</label>
+      <input name="brand_color" type="color" value="{{ resto.brand_color }}" class="mt-1 h-12 w-full rounded-xl"></div>
+    <div class="min-w-0"><label class="text-sm font-semibold text-gray-700">Couleur secondaire</label>
+      <input name="accent_color" type="color" value="{{ resto.accent_color }}" class="mt-1 h-12 w-full rounded-xl"></div>
   </div>
 
-  <div class="grid grid-cols-2 gap-3">
-    <div><label class="text-sm font-semibold text-gray-700">Minimum de commande</label>
-      <input name="min_order" type="number" min="0" value="{{ resto.min_order }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></div>
-    <div><label class="text-sm font-semibold text-gray-700">Téléphone</label>
-      <input name="phone" type="tel" value="{{ resto.phone }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none"></div>
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700">Logo</label>
+      <input name="logo" type="file" accept="image/*" class="mt-1 w-full text-sm">
+    </div>
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700">Image de couverture</label>
+      <input name="cover_image" type="file" accept="image/*" class="mt-1 w-full text-sm">
+    </div>
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700">Galerie photos (multiple)</label>
+      <input name="gallery" type="file" accept="image/*" multiple class="mt-1 w-full text-sm">
+    </div>
   </div>
 
-  <fieldset id="horaires" class="rounded-2xl border border-gray-100 p-4">
+  <div class="min-w-0">
+    <label class="text-sm font-semibold text-gray-700" for="f-sector">Secteur d'activité</label>
+    <select id="f-sector" name="sector" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <option value="">Choisir un secteur…</option>
+      {% for s in sectors %}
+      <option value="{{ s.id }}" {% if resto.sector_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+    <p class="mt-1 text-xs text-gray-500">Les catégories de vos plats (ex : Pizza, Pâtes, Boissons) dépendent de ce secteur.</p>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+    <div class="grid grid-cols-2 gap-3 min-w-0">
+      <div class="min-w-0"><label class="text-sm font-semibold text-gray-700" for="f-hood">Quartier</label>
+        <input id="f-hood" name="neighborhood" value="{{ resto.neighborhood }}" maxlength="80" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30"></div>
+      <div class="min-w-0"><label class="text-sm font-semibold text-gray-700" for="f-fee">Frais livraison (FCFA)</label>
+        <input id="f-fee" name="delivery_fee" type="number" inputmode="numeric" min="0" max="50000" step="1" value="{{ resto.delivery_fee }}" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 tabular focus:outline-none focus:ring-2 focus:ring-brand/30"></div>
+    </div>
+    <div class="min-w-0">
+      <label class="text-sm font-semibold text-gray-700" for="f-address">Adresse</label>
+      <input id="f-address" name="address" value="{{ resto.address }}" maxlength="255" placeholder="Adresse" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+    <div class="min-w-0">
+      <p class="text-sm font-semibold text-gray-700">Délai de livraison (minutes)</p>
+      <div class="mt-1 grid grid-cols-2 gap-3">
+        <input name="delivery_time_min" type="number" inputmode="numeric" min="0" max="240" step="1" value="{{ resto.delivery_time_min }}" aria-label="Délai minimum" placeholder="Délai min" class="w-full min-w-0 px-4 py-3 rounded-xl bg-gray-100 tabular focus:outline-none focus:ring-2 focus:ring-brand/30">
+        <input name="delivery_time_max" type="number" inputmode="numeric" min="0" max="240" step="1" value="{{ resto.delivery_time_max }}" aria-label="Délai maximum" placeholder="Délai max" class="w-full min-w-0 px-4 py-3 rounded-xl bg-gray-100 tabular focus:outline-none focus:ring-2 focus:ring-brand/30">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 min-w-0">
+      <div class="min-w-0"><label class="text-sm font-semibold text-gray-700" for="f-max">Commandes max / jour</label>
+        <input id="f-max" name="max_orders_per_day" type="number" inputmode="numeric" min="0" max="100000" step="1" value="{{ resto.max_orders_per_day }}" placeholder="0 = illimité" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 tabular focus:outline-none focus:ring-2 focus:ring-brand/30">
+        <p class="mt-1 text-xs text-gray-500">0 = pas de limite.</p></div>
+      <div class="min-w-0"><label class="text-sm font-semibold text-gray-700" for="f-phone">Téléphone</label>
+        <input id="f-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value="{{ resto.phone }}" maxlength="20" pattern="\+?[0-9 .\-()]{8,20}" title="8 à 15 chiffres, le + est accepté" class="mt-1 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30"></div>
+    </div>
+  </div>
+
+  <fieldset id="horaires" class="min-w-0 rounded-2xl border border-gray-100 p-4 md:p-5">
     <legend class="px-1 text-sm font-bold text-gray-900">Horaires d'ouverture</legend>
     <input type="hidden" name="hours_form" value="1">
     <p class="text-xs text-gray-500">Hors de ces horaires, les clients ne peuvent pas commander. Service après minuit : mettez une fermeture plus tôt que l'ouverture (ex : 18:00 → 02:00).</p>
-    <div class="mt-3 space-y-2">
+    <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3">
       {% for h in resto.weekly_hours %}
-      <div class="flex items-center gap-2" x-data="{ on: {{ h.open|yesno:'true,false' }} }">
-        <label class="flex w-28 items-center gap-2 text-sm font-semibold text-gray-800"><input type="checkbox" name="day_{{ h.day }}" x-model="on" class="accent-[#FF6B1A]"> {{ h.label }}</label>
-        <input type="time" name="open_{{ h.day }}" value="{{ h.start }}" :disabled="!on" class="flex-1 rounded-lg bg-gray-100 px-2 py-2 text-sm disabled:opacity-40">
-        <span class="text-gray-400">–</span>
-        <input type="time" name="close_{{ h.day }}" value="{{ h.end }}" :disabled="!on" class="flex-1 rounded-lg bg-gray-100 px-2 py-2 text-sm disabled:opacity-40">
+      <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 rounded-xl bg-gray-50 p-2 sm:grid-cols-[minmax(7rem,auto)_minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:bg-transparent sm:p-0" x-data="{ on: {{ h.open|yesno:'true,false' }} }">
+        <label class="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-800"><input type="checkbox" name="day_{{ h.day }}" x-model="on" class="accent-[#FF6B1A]"> {{ h.label }}</label>
+        <div class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+          <input type="time" name="open_{{ h.day }}" value="{{ h.start }}" aria-label="Ouverture {{ h.label }}" :disabled="!on" class="min-w-0 w-full rounded-lg bg-gray-100 px-2 py-2 text-sm disabled:opacity-40">
+          <span class="text-gray-400">–</span>
+          <input type="time" name="close_{{ h.day }}" value="{{ h.end }}" aria-label="Fermeture {{ h.label }}" :disabled="!on" class="min-w-0 w-full rounded-lg bg-gray-100 px-2 py-2 text-sm disabled:opacity-40">
+        </div>
       </div>
       {% endfor %}
     </div>
@@ -84,17 +103,17 @@
 
   <div class="rounded-xl bg-gray-50 p-4">
     <p class="text-sm font-semibold text-gray-700">Position sur la carte</p>
-    <p x-ref="loc" class="text-xs text-gray-500 mt-1">{% if resto.lat %}{{ resto.lat|floatformat:4 }}, {{ resto.lng|floatformat:4 }}{% else %}Non définie{% endif %}</p>
+    <p x-ref="loc" class="text-xs text-gray-500 mt-1 break-all">{% if resto.lat %}{{ resto.lat|floatformat:4 }}, {{ resto.lng|floatformat:4 }}{% else %}Non définie{% endif %}</p>
     <button type="button" @click="locate" class="mt-2 px-4 py-2 rounded-lg border-2 border-brand text-brand text-sm font-bold">Définir ma position actuelle</button>
   </div>
 
-  <button type="submit" class="w-full py-4 rounded-xl bg-brand text-white font-bold">Enregistrer ma page</button>
+  <button type="submit" class="w-full md:w-auto md:px-10 py-4 rounded-xl bg-brand text-white font-bold">Enregistrer ma page</button>
 </form>
 
 {% if resto.photos.exists %}
 <div class="mt-5">
   <p class="text-sm font-semibold text-gray-700 mb-2">Galerie</p>
-  <div class="grid grid-cols-3 gap-2">{% for ph in resto.photos.all %}<img src="{{ ph.image.url }}" class="h-24 w-full object-cover rounded-lg">{% endfor %}</div>
+  <div class="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">{% for ph in resto.photos.all %}<img src="{{ ph.image.url }}" alt="" loading="lazy" class="h-24 md:h-32 w-full object-cover rounded-lg">{% endfor %}</div>
 </div>
 {% endif %}
 {% endblock %}

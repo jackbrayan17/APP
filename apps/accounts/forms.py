@@ -1,6 +1,8 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
+from apps.core.inputs import clean_phone
+
 User = get_user_model()
 
 
@@ -11,6 +13,12 @@ class RegisterForm(forms.ModelForm):
     class Meta:
         model = User
         fields = ("first_name", "last_name", "email", "phone", "role")
+
+    def clean_phone(self):
+        phone = clean_phone(self.cleaned_data.get("phone"))
+        if phone is None:
+            raise forms.ValidationError("Téléphone invalide : 8 à 15 chiffres (le + est accepté).")
+        return phone
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()

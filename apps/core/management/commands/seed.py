@@ -66,6 +66,7 @@ class Command(BaseCommand):
                                      "bio": "Food blogueuse à Douala 🍴"})
         PromoCode.objects.get_or_create(
             code="STEPH10", defaults={"influencer": inf_profile, "percent": 10, "max_uses": 100,
+                                      "status": PromoCode.Status.APPROVED,
                                       "restaurant": Restaurant.objects.get(name="Le Ndolé d'Or")})
 
         burger = Restaurant.objects.get(name="Burger House Bali")

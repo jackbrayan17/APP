@@ -16,6 +16,7 @@ class Order(TimeStampedModel):
         READY = "ready", "Prête"
         PICKED_UP = "picked_up", "Récupérée"
         ON_THE_WAY = "on_the_way", "En route"
+        ARRIVED = "arrived", "Arrivée chez le client"
         DELIVERED = "delivered", "Livrée"
         CANCELLED = "cancelled", "Annulée"
 
@@ -25,6 +26,11 @@ class Order(TimeStampedModel):
         OM = "om", "Orange Money"
         CARD = "card", "Carte bancaire"
 
+    class CancelledBy(models.TextChoices):
+        CUSTOMER = "customer", "Client (abandon)"
+        RESTAURANT = "restaurant", "Restaurant"
+        SYSTEM = "system", "Système"
+
     class PaymentStatus(models.TextChoices):
         PENDING = "pending", "En attente de paiement"
         PAID = "paid", "Payé"
@@ -33,6 +39,8 @@ class Order(TimeStampedModel):
 
     number = models.CharField(max_length=14, unique=True, blank=True, db_index=True)
     share_token = models.CharField(max_length=22, unique=True, blank=True, db_index=True)
+    # Code a 4 chiffres (ou QR) que le client montre / scanne pour valider la livraison
+    delivery_code = models.CharField(max_length=4, blank=True)
 
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                                  related_name="orders")
@@ -68,9 +76,11 @@ class Order(TimeStampedModel):
     ready_at = models.DateTimeField(null=True, blank=True)
     driver_assigned_at = models.DateTimeField(null=True, blank=True)
     picked_up_at = models.DateTimeField(null=True, blank=True)
+    arrived_at = models.DateTimeField(null=True, blank=True)
     delivered_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancel_reason = models.CharField(max_length=160, blank=True)
+    cancelled_by = models.CharField(max_length=12, choices=CancelledBy.choices, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -81,6 +91,8 @@ class Order(TimeStampedModel):
             self.number = "OE" + get_random_string(8, "0123456789")
         if not self.share_token:
             self.share_token = get_random_string(16)
+        if not self.delivery_code:
+            self.delivery_code = get_random_string(4, "0123456789")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -102,9 +114,21 @@ class Order(TimeStampedModel):
     def is_awaiting_payment(self):
         return self.payment_status == self.PaymentStatus.PENDING
 
+    # Abandon possible tant que le livreur n'a pas récupéré la commande.
+    ABANDONABLE = (Status.PENDING, Status.CONFIRMED, Status.PREPARING, Status.READY)
+
     @property
     def is_cancellable_by_customer(self):
-        return self.status == self.Status.PENDING
+        return self.status in self.ABANDONABLE and not self.picked_up_at
+
+    @property
+    def is_abandoned(self):
+        return self.status == self.Status.CANCELLED and self.cancelled_by == self.CancelledBy.CUSTOMER
+
+    @property
+    def can_validate(self):
+        """Le client peut valider la livraison (code ou QR) des que le livreur est arrive."""
+        return self.status == self.Status.ARRIVED
 
     @property
     def restaurant_revenue(self):
@@ -117,7 +141,7 @@ class Order(TimeStampedModel):
         return {
             self.Status.PENDING: 0, self.Status.CONFIRMED: 1, self.Status.PREPARING: 2,
             self.Status.READY: 2, self.Status.PICKED_UP: 3, self.Status.ON_THE_WAY: 3,
-            self.Status.DELIVERED: 4,
+            self.Status.ARRIVED: 3, self.Status.DELIVERED: 4,
         }.get(self.status, 0)
 
     @property
@@ -134,6 +158,7 @@ class Order(TimeStampedModel):
                       else "Prête ! Nous cherchons un livreur."),
             S.PICKED_UP: "Le livreur a récupéré votre commande.",
             S.ON_THE_WAY: "Votre livreur est en route vers vous.",
+            S.ARRIVED: f"Votre livreur est arrivé. Donnez-lui le code {self.delivery_code} ou scannez son QR code.",
             S.DELIVERED: "Livrée. Bon appétit !",
             S.CANCELLED: "Commande annulée." + (f" {self.cancel_reason}" if self.cancel_reason else ""),
         }.get(self.status, "")
@@ -145,7 +170,8 @@ class Order(TimeStampedModel):
     def recompute_totals(self):
         self.items_total = sum(i.line_total for i in self.items.all())
         self.total = max(0, self.items_total + self.delivery_fee - self.discount)
-        self.save(update_fields=["items_total", "total"])
+        # discount / promo_code sont sauvegardes ici : sinon la remise disparait apres le checkout.
+        self.save(update_fields=["items_total", "total", "discount", "promo_code"])
 
 
 class OrderItem(models.Model):

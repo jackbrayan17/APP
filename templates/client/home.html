@@ -7,16 +7,21 @@
   <!-- Logo -->
   <img src="{% static 'icons/logo.png' %}?v=3" alt="ONE EAT" width="56" height="56" class="h-14 w-14 mb-2 -ml-1">
   <!-- Header -->
-  <div class="flex items-start justify-between">
-    <div>
-      <p class="text-xs text-gray-400 font-medium">Livraison à</p>
-      <button class="flex items-center gap-1 mt-0.5">
-        <svg class="w-4 h-4 text-brand" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd"/></svg>
-        <span class="font-bold text-gray-900">Douala, Cameroun</span>
-        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
-      </button>
+  <div class="flex items-start justify-between gap-2">
+    <div class="min-w-0">
+      <p class="text-xs text-gray-400 font-medium" data-i18n="deliver_to">Livraison à</p>
+      <div class="mt-0.5 min-w-0">
+        <div class="flex items-start gap-1.5">
+          <svg class="w-4 h-4 mt-1 text-brand flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd"/></svg>
+          <span id="oe-loc-label" class="font-bold text-gray-900 leading-tight min-w-0" data-i18n="city_default">Douala, Cameroun</span>
+        </div>
+        <div class="mt-1.5"><button type="button" data-locate class="px-2.5 py-0.5 rounded-full bg-brand-50 text-brand text-[11px] font-bold" data-i18n="locate">Me localiser</button></div>
+      </div>
+      <p id="oe-loc-status" class="hidden mt-1 text-[11px] font-semibold text-amber-600" aria-live="polite"></p>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <button type="button" data-sound-toggle class="oe-pill w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center text-base" aria-label="Son">🔊</button>
+      <button type="button" data-lang-toggle class="oe-pill h-9 px-2.5 rounded-full bg-gray-900 text-white text-xs font-extrabold">EN</button>
       <a href="{% url 'core:notifications' %}" class="relative w-11 h-11 rounded-full bg-gray-50 flex items-center justify-center">
         <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
         {% if unread_notifications %}<span class="absolute top-2.5 right-3 w-2.5 h-2.5 rounded-full bg-brand ring-2 ring-white"></span>{% endif %}
@@ -31,10 +36,10 @@
   <!-- Recherche -->
   <form action="{% url 'core:home' %}" method="get" class="mt-4 relative" data-live-search-form>
     <svg class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-    <input name="q" value="{{ q }}" type="search" autocomplete="off" placeholder="Pizza, poulet braisé, ndolé..."
+    <input name="q" value="{{ q }}" type="search" autocomplete="off" placeholder="Pizza, poulet braisé, ndolé..." data-i18n-placeholder="search_placeholder"
            data-live-search-input
            class="w-full h-14 pl-12 pr-12 rounded-2xl bg-gray-100 text-[15px] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/30">
-    <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-white" aria-label="Rechercher">
+    <button type="submit" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-white" aria-label="Rechercher" data-i18n-aria="search_label">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-5-5 5 5-5 5"/></svg>
     </button>
   </form>
@@ -42,15 +47,15 @@
 
 <!-- Categories -->
 <div id="home-categories" class="mt-5 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
-  {% for cat in categories %}
-  <a href="?cat={{ cat.slug }}" data-category-filter
-     class="flex-shrink-0 w-[82px] h-[88px] rounded-2xl flex flex-col items-center justify-center gap-1.5 border transition
+  {% for cat in sector_chips %}
+  <a href="{% if cat.slug == 'tous' %}{% url 'core:home' %}{% else %}?cat={{ cat.slug }}{% endif %}" data-category-filter data-fx="{{ cat.slug }}"
+     class="oe-press flex-shrink-0 w-[88px] h-[88px] rounded-2xl flex flex-col items-center justify-center gap-1 border transition
      {% if active_cat == cat.slug %}bg-brand-50 border-brand/20 text-brand shadow-sm{% else %}bg-gray-50 border-transparent text-gray-600{% endif %}">
-    <span class="w-16 h-14 flex items-center justify-center" aria-hidden="true">
-      <img src="{% static 'icons/categories/' %}{{ cat.slug }}.png"
+    <span data-fx-icon class="relative w-14 h-14 flex items-center justify-center" aria-hidden="true">
+      <img src="{% static 'icons/categories/' %}{{ cat.icon }}.png"
            class="w-full h-full object-contain" alt="" loading="eager">
     </span>
-    <span class="text-[12px] font-semibold">{{ cat.name }}</span>
+    <span class="whitespace-nowrap text-[12px] font-semibold" data-i18n="cat_{{ cat.slug }}">{{ cat.name }}</span>
   </a>
   {% endfor %}
 </div>
@@ -75,8 +80,8 @@
   {% endif %}
 
   {% if search_restaurants %}
-  <div class="mt-5 space-y-3">
-    <p class="text-sm font-extrabold text-gray-900">Restaurants</p>
+  <div class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
+    <p class="text-sm font-extrabold text-gray-900 md:col-span-full" data-i18n="top_restaurants">Top Restaurants dans la ville</p>
     {% for r in search_restaurants %}{% include "client/_restaurant_card.html" with r=r %}{% endfor %}
   </div>
   {% endif %}
@@ -104,87 +109,166 @@
 </a>
 {% endif %}
 
-<a href="{% url 'core:dietetique' %}" class="mx-4 mt-5 flex items-center gap-4 overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 to-teal-500 p-4 text-white">
+<a href="{% url 'core:dietetique' %}" class="mx-4 mt-4 flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-3 text-white">
   <span class="min-w-0 flex-1">
-    <span class="block text-[11px] font-bold uppercase tracking-wider text-emerald-100">Nouveau · Espace diététique</span>
-    <span class="mt-0.5 block text-lg font-extrabold leading-tight">Manger léger à Douala</span>
-    <span class="mt-0.5 block text-xs text-emerald-50">{{ diet_count }} plats avec calories &amp; macros · filtrez par objectif</span>
+    <span class="block text-[10px] font-bold uppercase tracking-wider text-emerald-100" data-i18n="diet_eyebrow">Nouveau · Espace diététique</span>
+    <span class="block text-[15px] font-extrabold leading-tight" data-i18n="diet_title">Manger léger à Douala</span>
+    <span class="block truncate text-[11px] text-emerald-50"><span>{{ diet_count }}</span> <span data-i18n="diet_sub">plats avec calories &amp; macros · filtrez par objectif</span></span>
   </span>
-  <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/20">
-    <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path d="M17 3c-7 .5-11 4-11 9 0 1.2.3 2.3.8 3.2L4 18l1.4 1 2.5-2.6A6 6 0 0011 17c4.5 0 7-4.5 6-14z"/></svg>
-  </span>
+  <svg class="w-6 h-6 flex-shrink-0 text-white/90" fill="currentColor" viewBox="0 0 20 20"><path d="M17 3c-7 .5-11 4-11 9 0 1.2.3 2.3.8 3.2L4 18l1.4 1 2.5-2.6A6 6 0 0011 17c4.5 0 7-4.5 6-14z"/></svg>
 </a>
 
-<!-- A la une -->
+<!-- À la une : 11 restaurants -->
 {% if featured %}
-<div class="mt-6 px-4 flex items-center justify-between">
-  <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l2.105 2.03 2.895-.414a.75.75 0 01.822.822l-.414 2.895 2.03 2.105a.75.75 0 010 1.04l-2.03 2.105.414 2.895a.75.75 0 01-.822.822l-2.895-.414-2.105 2.03a.75.75 0 01-1.04 0l-2.105-2.03-2.895.414a.75.75 0 01-.822-.822l.414-2.895-2.03-2.105a.75.75 0 010-1.04l2.03-2.105-.414-2.895a.75.75 0 01.822-.822l2.895.414 2.105-2.03z"/></svg>
-    À la une
-  </h2>
-</div>
-<div class="mt-3 flex gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
-  {% for r in featured %}
-  <a href="{% url 'restaurants:detail' r.slug %}" class="flex-shrink-0 w-[280px]">
-    <div class="relative h-[180px] rounded-2xl overflow-hidden bg-gray-200">
-      {% if r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">
-      {% elif r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover" alt="{{ r.name }}">{% endif %}
-      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent"></div>
-      {% if r.tagline %}<span class="absolute top-3 left-3 px-3 py-1 rounded-full bg-brand text-white text-xs font-bold">{{ r.tagline }}</span>{% endif %}
-      <div class="absolute bottom-3 left-3 right-3 text-white">
-        <h3 class="text-xl font-extrabold drop-shadow">{{ r.name }}</h3>
-        <div class="flex items-center gap-2 text-sm mt-1">
-          <span class="flex items-center gap-1"><svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 01.9.56l1.9 3.86 4.26.62a1 1 0 01.55 1.7l-3.08 3 .73 4.23a1 1 0 01-1.45 1.05L10 15.02l-3.81 2a1 1 0 01-1.45-1.05l.73-4.23-3.08-3a1 1 0 01.55-1.7l4.26-.62L9.1 2.56A1 1 0 0110 2z"/></svg> {{ r.rating_label }}</span>
-          <span>·</span>
-          <span class="flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/></svg> {{ r.delivery_time_label }}</span>
-          {% if r.neighborhood %}<span>·</span><span>{{ r.neighborhood }}</span>{% endif %}
-        </div>
-      </div>
-    </div>
-  </a>
-  {% endfor %}
-</div>
-{% endif %}
-
-<!-- Restaurants populaires -->
-{% if popular %}
 <div class="mt-5 px-4 flex items-center justify-between">
   <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
-    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0A3.75 3.75 0 0012.75 15h-1.5a3.75 3.75 0 00-3.75 3.75m9 0V21h-9v-2.25M8.25 4.5h7.5v4.125a3.75 3.75 0 11-7.5 0V4.5zM15.75 6H18a2.25 2.25 0 01-2.25 2.25M8.25 6H6a2.25 2.25 0 002.25 2.25"/></svg>
-    Restaurants populaires
+    <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l2.105 2.03 2.895-.414a.75.75 0 01.822.822l-.414 2.895 2.03 2.105a.75.75 0 010 1.04l-2.03 2.105.414 2.895a.75.75 0 01-.822.822l-2.895-.414-2.105 2.03a.75.75 0 01-1.04 0l-2.105-2.03-2.895.414a.75.75 0 01-.822-.822l.414-2.895-2.03-2.105a.75.75 0 010-1.04l2.03-2.105-.414-2.895a.75.75 0 01.822-.822l2.895.414 2.105-2.03z"/></svg>
+    <span data-i18n="featured">À la une</span>
   </h2>
-  <a href="{% url 'core:explore' %}" class="text-brand text-sm font-bold flex items-center gap-1">Voir tout
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-  </a>
+  <span class="text-xs font-semibold text-gray-400">{{ featured|length }}</span>
 </div>
-<div class="mt-3 flex gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
-  {% for r in popular %}
-  <a href="{% url 'restaurants:detail' r.slug %}" class="flex-shrink-0 w-[150px]">
-    <div class="h-[110px] rounded-2xl overflow-hidden bg-gray-200 relative">
-      {% if r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover">{% elif r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover">{% endif %}
-      {% if r.neighborhood %}<span class="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-white text-[11px] font-semibold">{{ r.neighborhood }}</span>{% endif %}
+<div id="oe-rail-featured" class="oe-rail mt-3 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+  {% for r in featured %}
+  <a href="{% url 'restaurants:detail' r.slug %}" class="oe-card-in flex-shrink-0 w-[220px]" style="--i: {{ forloop.counter0 }}">
+    <div class="relative h-[124px] rounded-2xl overflow-hidden bg-gray-200">
+      {% if r.cover_image %}<img src="{{ r.cover_image.url }}" class="w-full h-full object-cover" alt="{{ r.name }}" loading="lazy">
+      {% elif r.logo %}<img src="{{ r.logo.url }}" class="w-full h-full object-cover" alt="{{ r.name }}" loading="lazy">{% endif %}
+      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent"></div>
+      {% if r.tagline %}<span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-brand text-white text-[10px] font-bold">{{ r.tagline }}</span>{% endif %}
+      <div class="absolute bottom-2 left-2 right-2 text-white">
+        <h3 class="text-base font-extrabold leading-tight drop-shadow truncate">{{ r.name }}</h3>
+      </div>
     </div>
-    <h3 class="mt-2 font-bold text-gray-900 text-sm leading-tight">{{ r.name }}</h3>
-    <p class="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-      <svg class="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 01.9.56l1.9 3.86 4.26.62a1 1 0 01.55 1.7l-3.08 3 .73 4.23a1 1 0 01-1.45 1.05L10 15.02l-3.81 2a1 1 0 01-1.45-1.05l.73-4.23-3.08-3a1 1 0 01.55-1.7l4.26-.62L9.1 2.56A1 1 0 0110 2z"/></svg>
-      {{ r.rating_label }} · {{ r.delivery_time_label }}
+    <p class="mt-1.5 text-[11px] text-gray-500 flex items-center gap-1.5 truncate">
+      <span class="font-bold text-gray-800">★ {{ r.rating_label }}</span><span>·</span><span>{{ r.delivery_time_label }}</span>{% if r.neighborhood %}<span>·</span><span class="truncate">{{ r.neighborhood }}</span>{% endif %}
     </p>
   </a>
   {% endfor %}
 </div>
 {% endif %}
 
+<!-- Deux rails de plats (un restaurant par rail, 6 plats) -->
+{% for rail in dish_rails_top %}
+<div class="mt-5 px-4 flex items-center justify-between gap-3">
+  <div class="min-w-0 flex items-center gap-2.5">
+    {% if rail.resto.logo %}<img src="{{ rail.resto.logo.url }}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0" alt="">{% endif %}
+    <div class="min-w-0">
+      <p class="text-[10px] font-bold uppercase tracking-wide text-brand" data-i18n="top_restaurants">Top Restaurants dans la ville</p>
+      <h2 class="text-base font-extrabold text-gray-900 truncate">{{ rail.resto.name }}</h2>
+    </div>
+  </div>
+  <a href="{% url 'restaurants:detail' rail.resto.slug %}" class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-brand text-white text-xs font-bold" data-i18n="see_more">Voir plus</a>
+</div>
+<div class="oe-rail mt-2.5 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+  {% for dish in rail.dishes %}
+  <div class="oe-card-in flex-shrink-0 w-[132px]" style="--i: {{ forloop.counter0 }}">
+    <a href="{% url 'restaurants:dish_detail' dish.id %}" class="block">
+      <div class="h-[100px] rounded-2xl overflow-hidden bg-gray-100">
+        {% if dish.image %}<img src="{{ dish.image.url }}" class="w-full h-full object-cover" alt="{{ dish.name }}" loading="lazy">
+        {% else %}<div class="w-full h-full flex items-center justify-center text-3xl bg-orange-50">🍽️</div>{% endif %}
+      </div>
+      <h3 class="mt-1.5 font-bold text-gray-900 text-[13px] leading-tight line-clamp-2">{{ dish.name }}</h3>
+    </a>
+    <div class="mt-1 flex items-center justify-between gap-1">
+      <p class="text-[13px] font-extrabold truncate" style="color:{{ rail.resto.brand_color }}">{{ dish.current_price }} {{ CURRENCY }}</p>
+      {% if dish.available_options %}
+      <button type="button" data-options-sheet="{{ dish.id }}" aria-label="Personnaliser {{ dish.name }}"
+              class="flex-shrink-0 w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" style="background:{{ rail.resto.brand_color }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      </button>
+      {% else %}
+      <button type="button" data-add-cart="{{ dish.id }}" aria-label="Ajouter {{ dish.name }} au panier"
+              class="flex-shrink-0 w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" style="background:{{ rail.resto.brand_color }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<!-- Diaporama promos -->
+{% if showcase %}
+<section class="mt-6" data-showcase aria-roledescription="carousel">
+  <div class="px-4">
+    <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+      <span aria-hidden="true">🔥</span>
+      <span data-i18n="showcase_title">Promos du moment</span>
+    </h2>
+  </div>
+  <div class="relative mx-4 mt-3 h-[210px] rounded-3xl overflow-hidden bg-gray-900 shadow-xl shadow-black/10">
+    {% for s in showcase %}
+    <a href="{{ s.href }}" class="oe-slide absolute inset-0 opacity-0" data-slide>
+      <img src="{{ s.img }}" alt="{{ s.title }}" loading="lazy" class="w-full h-full object-cover">
+      {% if s.badge %}<span class="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-brand text-white text-xs font-extrabold shadow">{{ s.badge }}</span>{% endif %}
+      <span class="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/85 via-black/30 to-transparent text-white">
+        <span class="block text-[10px] font-bold uppercase tracking-wider text-brand" data-i18n="showcase_tag">Juteux, croustillant, à commander maintenant</span>
+        <span class="mt-0.5 block text-lg font-extrabold drop-shadow">{{ s.title }}</span>
+        <span class="flex items-center justify-between gap-2">
+          <span class="truncate text-sm text-white/80">{{ s.sub }}</span>
+          <span class="flex-shrink-0 px-3 py-1 rounded-full bg-white text-gray-900 text-xs font-bold" data-i18n="order_now">Commander</span>
+        </span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  <div class="mt-3 flex justify-center gap-1.5" data-showcase-dots></div>
+</section>
 {% endif %}
 
-<!-- Tous les restaurants -->
+<!-- Deux rails de plats supplémentaires -->
+{% for rail in dish_rails_bottom %}
+<div class="mt-5 px-4 flex items-center justify-between gap-3">
+  <div class="min-w-0 flex items-center gap-2.5">
+    {% if rail.resto.logo %}<img src="{{ rail.resto.logo.url }}" class="w-9 h-9 rounded-xl object-cover flex-shrink-0" alt="">{% endif %}
+    <div class="min-w-0">
+      <p class="text-[10px] font-bold uppercase tracking-wide text-brand" data-i18n="top_restaurants">Top Restaurants dans la ville</p>
+      <h2 class="text-base font-extrabold text-gray-900 truncate">{{ rail.resto.name }}</h2>
+    </div>
+  </div>
+  <a href="{% url 'restaurants:detail' rail.resto.slug %}" class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-brand text-white text-xs font-bold" data-i18n="see_more">Voir plus</a>
+</div>
+<div class="oe-rail mt-2.5 flex gap-3 overflow-x-auto no-scrollbar px-4 pb-1">
+  {% for dish in rail.dishes %}
+  <div class="oe-card-in flex-shrink-0 w-[132px]" style="--i: {{ forloop.counter0 }}">
+    <a href="{% url 'restaurants:dish_detail' dish.id %}" class="block">
+      <div class="h-[100px] rounded-2xl overflow-hidden bg-gray-100">
+        {% if dish.image %}<img src="{{ dish.image.url }}" class="w-full h-full object-cover" alt="{{ dish.name }}" loading="lazy">
+        {% else %}<div class="w-full h-full flex items-center justify-center text-3xl bg-orange-50">🍽️</div>{% endif %}
+      </div>
+      <h3 class="mt-1.5 font-bold text-gray-900 text-[13px] leading-tight line-clamp-2">{{ dish.name }}</h3>
+    </a>
+    <div class="mt-1 flex items-center justify-between gap-1">
+      <p class="text-[13px] font-extrabold truncate" style="color:{{ rail.resto.brand_color }}">{{ dish.current_price }} {{ CURRENCY }}</p>
+      {% if dish.available_options %}
+      <button type="button" data-options-sheet="{{ dish.id }}" aria-label="Personnaliser {{ dish.name }}"
+              class="flex-shrink-0 w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" style="background:{{ rail.resto.brand_color }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      </button>
+      {% else %}
+      <button type="button" data-add-cart="{{ dish.id }}" aria-label="Ajouter {{ dish.name }} au panier"
+              class="flex-shrink-0 w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" style="background:{{ rail.resto.brand_color }}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+{% endif %}
+
+<!-- Top Restaurants dans la ville -->
 {% if not q and not filter_active %}
-<div class="mt-5 px-4">
+<div class="mt-7 px-4">
   <h2 class="text-lg font-extrabold text-gray-900 flex items-center gap-2">
     <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.25m11.25 0H21m-18.75 0v-9.75A2.25 2.25 0 014.5 9h15a2.25 2.25 0 012.25 2.25V21M6.75 9V4.5A2.25 2.25 0 019 2.25h6a2.25 2.25 0 012.25 2.25V9"/></svg>
-    Tous les restaurants
+    <span data-i18n="top_restaurants">Top Restaurants dans la ville</span>
   </h2>
 </div>
-<div class="mt-3 px-4 space-y-3">
+<div id="all-restaurants" class="mt-3 px-4 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
   {% for r in restaurants %}
     {% include "client/_restaurant_card.html" with r=r %}
   {% empty %}
@@ -255,6 +339,9 @@
         var nextCategories = page.getElementById('home-categories');
         if (currentCategories && nextCategories) currentCategories.innerHTML = nextCategories.innerHTML;
       }
+
+      if (window.OE && OE.applyI18n) OE.applyI18n();
+      if (window.OE && OE.fx) OE.fx.refresh();
 
       var target = new URL(url, window.location.origin);
       history.replaceState({}, '', target.pathname + target.search);

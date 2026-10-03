@@ -5,14 +5,17 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Address
+from apps.core.inputs import clean_float
 from apps.restaurants.models import Dish
 from .models import Order, Review
 from .services import (PAYMENT_CHOICES, CheckoutError, build_cart_groups, create_orders,
-                       reorder_lines)
-from .workflow import TransitionError, confirm_mobile_money, customer_cancel
+                       reorder_lines, resolve_cart_lines, line_key)
+from .workflow import TransitionError, confirm_mobile_money, customer_cancel, customer_validate
 
 
-# ---------------- Panier (session : {dish_id: {"qty": n}}) ----------------
+# ---------------- Panier ----------------
+# Session : {ligne: {"qty": n}}. La ligne est l'id du plat (« 12 ») ou, avec des
+# complements, « 12:34-56 » (plat 12 + options 34 et 56). Les anciens paniers restent valides.
 def _get_cart(request):
     return request.session.get("cart", {})
 
@@ -26,19 +29,44 @@ def _cart_count(request):
     return sum(i.get("qty", 0) for i in _get_cart(request).values())
 
 
+def _clean_option_ids(raw_values):
+    """Identifiants de complements envoyes par le client : entiers uniques, 20 max."""
+    ids = {int(v) for v in raw_values if str(v).isdigit()}
+    return sorted(ids)[:20]
+
+
+def _cart_entries(request):
+    entries = []
+    for key, entry in _get_cart(request).items():
+        head, _, tail = str(key).partition(":")
+        if not head.isdigit():
+            continue
+        option_ids = [int(x) for x in tail.split("-") if x.isdigit()]
+        qty = entry.get("qty", 0) if isinstance(entry, dict) else 0
+        entries.append((int(head), int(qty or 0), option_ids, key))
+    return entries
+
+
 def _cart_lines(request):
-    """Lignes panier avec les prix actuels (jamais ceux figes en session)."""
-    cart = _get_cart(request)
-    dishes = Dish.objects.filter(id__in=[int(k) for k in cart]).select_related("restaurant")
-    return [(d, cart[str(d.id)]["qty"]) for d in dishes if cart.get(str(d.id), {}).get("qty")]
+    """(lignes, problemes) avec les prix actuels (jamais ceux figes en session)."""
+    return resolve_cart_lines(_cart_entries(request))
 
 
 @require_POST
 def cart_add(request, dish_id):
     dish = get_object_or_404(Dish.objects.select_related("restaurant"), id=dish_id, is_available=True)
+    option_ids = _clean_option_ids(request.POST.getlist("options"))
+    try:
+        qty = max(1, min(50, int(request.POST.get("qty") or 1)))
+    except ValueError:
+        qty = 1
+    key = line_key(dish_id, option_ids)
+    _, problems = resolve_cart_lines([(dish_id, qty, option_ids, key)])
+    if problems:
+        return JsonResponse({"ok": False, "error": problems[0],
+                             "count": _cart_count(request)}, status=400)
     cart = _get_cart(request)
-    key = str(dish_id)
-    cart[key] = {"qty": cart.get(key, {}).get("qty", 0) + 1}
+    cart[key] = {"qty": cart.get(key, {}).get("qty", 0) + qty}
     _save_cart(request, cart)
     return JsonResponse({"ok": True, "count": _cart_count(request),
                          "name": dish.name, "open": dish.restaurant.is_open_now,
@@ -46,9 +74,8 @@ def cart_add(request, dish_id):
 
 
 @require_POST
-def cart_update(request, dish_id):
+def cart_update(request, key):
     cart = _get_cart(request)
-    key = str(dish_id)
     try:
         qty = max(0, min(50, int(request.POST.get("qty") or 0)))
     except ValueError:
@@ -63,7 +90,10 @@ def cart_update(request, dish_id):
 
 
 def cart_view(request):
-    groups = build_cart_groups(_cart_lines(request))
+    lines, problems = _cart_lines(request)
+    for problem in problems:
+        messages.warning(request, problem)
+    groups = build_cart_groups(lines)
     addresses = request.user.addresses.all() if request.user.is_authenticated else []
     return render(request, "client/cart.html", {
         "groups": groups,
@@ -82,19 +112,25 @@ def cart_view(request):
 def checkout(request):
     post = request.POST
     address, lat, lng = post.get("address", ""), post.get("lat"), post.get("lng")
-    saved = post.get("address_id")
-    if saved:
-        addr = Address.objects.filter(id=saved, user=request.user).first()
+    saved = post.get("address_id", "")
+    if saved.isdigit():
+        addr = Address.objects.filter(id=int(saved), user=request.user).first()
         if addr:
             address = addr.address + (f" — {addr.instructions}" if addr.instructions else "")
             lat, lng = addr.lat, addr.lng
     elif address and post.get("save_address") == "on":
-        Address.objects.create(user=request.user, label=post.get("address_label") or "Domicile",
-                               address=address, lat=lat or None, lng=lng or None,
+        Address.objects.create(user=request.user, label=(post.get("address_label") or "Domicile")[:40],
+                               address=address[:255],
+                               lat=clean_float(lat, lo=-90, hi=90),
+                               lng=clean_float(lng, lo=-180, hi=180),
                                is_default=not request.user.addresses.exists())
+    lines, problems = _cart_lines(request)
+    if problems:
+        messages.error(request, problems[0])
+        return redirect("orders:cart")
     try:
         orders = create_orders(
-            request.user, _cart_lines(request), address=address, lat=lat, lng=lng,
+            request.user, lines, address=address, lat=lat, lng=lng,
             payment_method=post.get("payment_method", "cash"),
             payment_phone=post.get("payment_phone", ""),
             notes=post.get("notes", ""), promo_code=post.get("promo_code", ""))
@@ -202,7 +238,7 @@ def order_cancel(request, number):
     order = get_object_or_404(Order, number=number, customer=request.user)
     try:
         customer_cancel(order)
-        messages.success(request, "Commande annulée.")
+        messages.success(request, "Commande abandonnée.")
     except TransitionError as exc:
         messages.error(request, str(exc))
     return redirect("orders:detail", number=number)
@@ -218,9 +254,8 @@ def reorder(request, number):
         messages.error(request, "Ces plats ne sont plus disponibles.")
         return redirect("orders:detail", number=number)
     cart = _get_cart(request)
-    for dish, qty in lines:
-        key = str(dish.id)
-        cart[key] = {"qty": cart.get(key, {}).get("qty", 0) + qty}
+    for line in lines:
+        cart[line.key] = {"qty": cart.get(line.key, {}).get("qty", 0) + line.qty}
     _save_cart(request, cart)
     missing = order.items.count() - len(lines)
     msg = "Plats ajoutés au panier."
@@ -234,6 +269,28 @@ def order_share(request, token):
     """Lien public de suivi/partage d'une commande."""
     order = get_object_or_404(Order.objects.select_related("restaurant"), share_token=token)
     return render(request, "share/order.html", {"order": order})
+
+
+@login_required
+def validate_delivery(request, number):
+    """Page de validation : le client saisit (ou scanne) le code et note la livraison."""
+    order = get_object_or_404(Order.objects.select_related("restaurant", "driver"),
+                              number=number, customer=request.user)
+    if request.method == "POST":
+        try:
+            customer_validate(order, request.user, request.POST.get("code", ""),
+                              rating=request.POST.get("rating"),
+                              driver_rating=request.POST.get("driver_rating"),
+                              comment=request.POST.get("comment", ""))
+            messages.success(request, "Livraison validée. Merci pour votre avis !")
+            return redirect("orders:detail", number=number)
+        except TransitionError as exc:
+            messages.error(request, str(exc))
+            order.refresh_from_db()
+    prefilled = request.GET.get("code", "") if request.method == "GET" else ""
+    return render(request, "client/validate.html", {
+        "order": order, "prefilled_code": prefilled, "cart_count": _cart_count(request),
+    })
 
 
 @login_required

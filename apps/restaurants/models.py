@@ -1,3 +1,4 @@
+import re
 from datetime import time as dtime
 
 from django.conf import settings
@@ -9,17 +10,26 @@ from django.utils.crypto import get_random_string
 from apps.core.models import TimeStampedModel
 
 
-class Category(models.Model):
-    """Categorie globale (filtres accueil : Tous, Local, Fast Food, Grillades...)."""
+EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U00002B00-\U00002BFF"
+    "\U0000FE00-\U0000FE0F\U0000200D\U000020E3]+")
+
+
+def strip_emojis(text):
+    """Retire les emojis d'un texte saisi (noms, slogans, bios des restaurants)."""
+    return " ".join(EMOJI_RE.sub("", text or "").split())
+
+
+class Sector(models.Model):
+    """Secteur d'activite d'un restaurant (ex : Restaurant Italien, Grillades)."""
     name = models.CharField(max_length=60, unique=True)
     slug = models.SlugField(max_length=70, unique=True, blank=True)
-    emoji = models.CharField(max_length=8, blank=True, help_text="Icone emoji (ex 🍔)")
+    icon = models.CharField(max_length=40, blank=True,
+                            help_text="Nom de l'icone dans static/icons/categories (sans .png)")
     order = models.PositiveSmallIntegerField(default=0)
-    is_nav = models.BooleanField(default=False, help_text="Afficher dans la barre du bas")
 
     class Meta:
         ordering = ["order", "name"]
-        verbose_name_plural = "Categories"
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -27,7 +37,38 @@ class Category(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.emoji} {self.name}".strip()
+        return self.name
+
+    @property
+    def icon_name(self):
+        return self.icon or self.slug
+
+
+class Category(models.Model):
+    """Categorie de plats, rattachee a un secteur (ex : Restaurant Italien > Pizza, Pates, Boissons)."""
+    sector = models.ForeignKey(Sector, on_delete=models.CASCADE, related_name="categories",
+                               null=True, blank=True)
+    name = models.CharField(max_length=60)
+    slug = models.SlugField(max_length=120, unique=True, blank=True)
+    emoji = models.CharField(max_length=8, blank=True, help_text="Icone emoji (ex 🍔)")
+    order = models.PositiveSmallIntegerField(default=0)
+    is_nav = models.BooleanField(default=False, help_text="Afficher dans la barre du bas")
+
+    class Meta:
+        ordering = ["sector__order", "order", "name"]
+        verbose_name_plural = "Categories"
+        constraints = [models.UniqueConstraint(fields=["sector", "name"],
+                                               name="unique_category_per_sector")]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = f"{self.sector.slug}-{self.name}" if self.sector_id else self.name
+            self.slug = slugify(base)[:120]
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        label = f"{self.sector.name} › {self.name}" if self.sector_id else self.name
+        return label.strip()
 
 
 WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
@@ -62,7 +103,8 @@ class Restaurant(TimeStampedModel):
     logo = models.ImageField(upload_to="restaurants/logos/", blank=True, null=True)
     cover_image = models.ImageField(upload_to="restaurants/covers/", blank=True, null=True)
 
-    categories = models.ManyToManyField(Category, blank=True, related_name="restaurants")
+    sector = models.ForeignKey(Sector, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name="restaurants", help_text="Secteur d'activite")
 
     # Localisation / zone
     neighborhood = models.CharField(max_length=80, blank=True,
@@ -76,7 +118,8 @@ class Restaurant(TimeStampedModel):
     delivery_fee = models.PositiveIntegerField(default=500, help_text="Frais livraison en FCFA")
     delivery_time_min = models.PositiveSmallIntegerField(default=20)
     delivery_time_max = models.PositiveSmallIntegerField(default=40)
-    min_order = models.PositiveIntegerField(default=0)
+    max_orders_per_day = models.PositiveIntegerField(
+        default=0, help_text="Nombre maximum de commandes acceptees par jour (0 = illimite)")
 
     # Personnalisation de la page
     brand_color = models.CharField(max_length=9, default="#FF6B1A")
@@ -107,6 +150,10 @@ class Restaurant(TimeStampedModel):
         indexes = [models.Index(fields=["slug"]), models.Index(fields=["share_token"])]
 
     def save(self, *args, **kwargs):
+        self.name = strip_emojis(self.name)
+        self.tagline = strip_emojis(self.tagline)
+        self.bio = strip_emojis(self.bio)
+        self.closure_note = strip_emojis(self.closure_note)
         if not self.slug:
             base = slugify(self.name) or "resto"
             slug = base
@@ -296,6 +343,11 @@ class Dish(TimeStampedModel):
         return self.active_promo is not None
 
     @property
+    def available_options(self):
+        """Complements et supplements (boissons, extras...) proposes et disponibles maintenant."""
+        return self.options.filter(is_available=True)
+
+    @property
     def dietary_tag_list(self):
         return [tag.strip() for tag in self.dietary_tags.split(",") if tag.strip()]
 
@@ -353,3 +405,24 @@ DIET_GOALS = [
     ("low-carb", "Pauvre en glucides", "30 g de glucides max"),
     ("fibres", "Riche en fibres", "8 g de fibres et plus"),
 ]
+
+
+class DishOption(TimeStampedModel):
+    """Complement ou supplement propose avec un plat (ex : Coca-Cola 33cl, +500 FCFA)."""
+    dish = models.ForeignKey(Dish, on_delete=models.CASCADE, related_name="options")
+    group = models.CharField(max_length=40, default="Suppléments", blank=True,
+                             help_text="Rubrique affichee au client : Boissons, Suppléments, Sauces...")
+    name = models.CharField(max_length=80)
+    price = models.PositiveIntegerField(default=0, help_text="FCFA ajoutes au plat (0 = offert)")
+    is_available = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["group", "order", "name"]
+
+    def __str__(self):
+        return f"{self.name} (+{self.price} FCFA) — {self.dish.name}"
+
+    @property
+    def label(self):
+        return f"{self.name} · +{self.price:,}".replace(",", " ") + " FCFA" if self.price else f"{self.name} · offert"

@@ -17,8 +17,9 @@ from apps.restaurants.models import Restaurant, Category, Dish
 from apps.orders.models import Order, OrderItem, Review
 from apps.promotions.models import PromoCode, PromoCodeRedemption
 from apps.delivery.models import DriverProfile
-from apps.orders.services import CheckoutError, create_orders
-from apps.orders.workflow import (TransitionError, driver_advance, driver_claim, mission_offers)
+from apps.orders.services import CheckoutError, create_orders, line_key, resolve_cart_lines
+from apps.orders.workflow import (TransitionError, customer_validate, driver_advance, driver_claim,
+                                  mission_offers)
 from .serializers import (
     RestaurantSerializer, RestaurantDetailSerializer, CategorySerializer,
     DishSerializer, OrderSerializer, ReviewSerializer, UserSerializer,
@@ -118,7 +119,7 @@ class RestaurantViewSet(viewsets.ReadOnlyModelViewSet):
         hood = self.request.query_params.get("hood")
         q = self.request.query_params.get("q")
         if cat and cat != "tous":
-            qs = qs.filter(categories__slug=cat).distinct()
+            qs = qs.filter(sector__slug=cat)
         if hood:
             qs = qs.filter(neighborhood=hood)
         if q:
@@ -154,7 +155,7 @@ class DishViewSet(viewsets.ReadOnlyModelViewSet):
                 Q(restaurant__name__icontains=q)
             )
         if cat and cat != "tous":
-            qs = qs.filter(Q(category__slug=cat) | Q(restaurant__categories__slug=cat)).distinct()
+            qs = qs.filter(restaurant__sector__slug=cat)
         if restaurant:
             qs = qs.filter(restaurant__slug=restaurant)
         return qs
@@ -234,11 +235,16 @@ def api_checkout(request):
     ser.is_valid(raise_exception=True)
     data = ser.validated_data
 
-    qty_by_dish = {}
+    # Meme plat + memes complements = une seule ligne ; sinon une ligne par combinaison.
+    qty_by_line = {}
     for it in data["items"]:
-        qty_by_dish[it["dish_id"]] = qty_by_dish.get(it["dish_id"], 0) + it["quantity"]
-    dishes = Dish.objects.filter(id__in=qty_by_dish.keys()).select_related("restaurant")
-    lines = [(d, qty_by_dish[d.id]) for d in dishes]
+        option_ids = tuple(sorted(set(it.get("option_ids") or [])))
+        qty_by_line[(it["dish_id"], option_ids)] = qty_by_line.get((it["dish_id"], option_ids), 0) + it["quantity"]
+    entries = [(dish_id, qty, list(opts), line_key(dish_id, opts))
+               for (dish_id, opts), qty in qty_by_line.items()]
+    lines, problems = resolve_cart_lines(entries)
+    if problems:
+        return Response({"detail": problems[0]}, status=400)
     user = request.user
     try:
         created = create_orders(
@@ -267,7 +273,8 @@ def api_validate_promo(request):
     if not code_str or not slug:
         return Response({"valid": False, "detail": "Paramètres manquants."}, status=400)
     resto = Restaurant.objects.filter(slug=slug).first()
-    code = PromoCode.objects.filter(code=code_str, restaurant=resto).first()
+    code = PromoCode.objects.filter(code=code_str, restaurant=resto,
+                                    status=PromoCode.Status.APPROVED).first()
     if not code or not code.is_valid:
         return Response({"valid": False, "detail": "Code invalide ou expiré."})
     return Response({"valid": True, "code": code.code, "percent": code.percent})
@@ -290,6 +297,21 @@ def api_review_order(request, number):
         comment=ser.validated_data.get("comment", ""),
     )
     return Response({"ok": True}, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_validate_delivery(request, number):
+    """Le client valide la livraison avec le code (ou QR) du livreur, et note la course."""
+    order = get_object_or_404(Order, number=number, customer=request.user)
+    try:
+        order = customer_validate(order, request.user, request.data.get("code", ""),
+                                  rating=request.data.get("rating"),
+                                  driver_rating=request.data.get("driver_rating"),
+                                  comment=request.data.get("comment", ""))
+    except TransitionError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    return Response(OrderSerializer(order).data)
 
 
 # ----------------------------------------------------------------------------

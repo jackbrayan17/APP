@@ -34,11 +34,20 @@
           {{ dish.prep_time }} min
         </span>
       </div>
+      {% if dish.available_options %}
+      {# Plat avec complements : la feuille du bas propose boissons et extras avant l'ajout #}
+      <button type="button" data-options-sheet="{{ dish.id }}"
+         class="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" aria-label="Personnaliser {{ dish.name }} : compléments et boissons"
+         style="background:{{ dish.restaurant.brand_color }}">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      </button>
+      {% else %}
       <button data-add-cart="{{ dish.id }}"
               class="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-md active:scale-90 transition" aria-label="Ajouter {{ dish.name }} au panier"
               style="background:{{ dish.restaurant.brand_color }}">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
+      {% endif %}
     </div>
   </div>
 </div>

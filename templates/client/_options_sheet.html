@@ -1,0 +1,77 @@
+<!-- Feuille du bas : choix des complements / supplements / boissons avant ajout au panier -->
+<style>
+  #oe-sheet { position: fixed; inset: 0; z-index: 80; visibility: hidden; pointer-events: none; }
+  #oe-sheet.is-open { visibility: visible; pointer-events: auto; }
+  #oe-sheet .oe-sheet-scrim { position: absolute; inset: 0; background: rgba(17,24,39,.55); opacity: 0;
+    transition: opacity .25s ease; }
+  #oe-sheet.is-open .oe-sheet-scrim { opacity: 1; }
+  #oe-sheet .oe-sheet-panel { position: absolute; left: 50%; bottom: 0; width: 100%; max-width: 480px;
+    max-height: 88dvh; display: flex; flex-direction: column; background: #fff; color: #111827;
+    border-radius: 28px 28px 0 0; box-shadow: 0 -12px 40px rgba(0,0,0,.18);
+    transform: translate(-50%, 102%); transition: transform .34s cubic-bezier(.16,1,.3,1);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #oe-sheet.is-open .oe-sheet-panel { transform: translate(-50%, 0); }
+  #oe-sheet .oe-opt { transition: border-color .15s ease, background-color .15s ease, transform .1s ease; }
+  #oe-sheet .oe-opt:active { transform: scale(.985); }
+  #oe-sheet .oe-opt[aria-pressed="true"] { border-color: #FF6B1A; background: #FFF1E8; }
+  #oe-sheet .oe-tick { transition: background-color .15s ease, border-color .15s ease; }
+  #oe-sheet .oe-opt[aria-pressed="true"] .oe-tick { background: #FF6B1A; border-color: #FF6B1A; }
+  #oe-sheet .oe-opt[aria-pressed="true"] .oe-tick svg { opacity: 1; }
+  #oe-sheet .oe-tick svg { opacity: 0; transition: opacity .15s ease; }
+  #oe-sheet .oe-total { transition: transform .18s cubic-bezier(.2,.8,.2,1); display: inline-block; }
+  #oe-sheet .oe-total.bump { transform: scale(1.08); }
+  #oe-sheet .oe-skel { background: linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 37%,#f3f4f6 63%); background-size: 400% 100%;
+    animation: oeSheetShimmer 1.2s ease infinite; border-radius: 16px; }
+  @keyframes oeSheetShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+  @media (min-width: 640px) {
+    #oe-sheet .oe-sheet-panel { bottom: 24px; border-radius: 28px; max-height: 84dvh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #oe-sheet .oe-sheet-panel, #oe-sheet .oe-sheet-scrim, #oe-sheet .oe-opt, #oe-sheet .oe-total { transition: none; }
+    #oe-sheet .oe-skel { animation: none; }
+  }
+  body.oe-sheet-open #oet-help, body.oe-sheet-open .oe-help { display: none !important; }
+</style>
+
+<div id="oe-sheet" aria-hidden="true">
+  {% csrf_token %}
+  <button type="button" class="oe-sheet-scrim" data-sheet-close aria-label="Fermer"></button>
+  <section class="oe-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="oe-sheet-title" aria-describedby="oe-sheet-desc">
+    <div class="flex justify-center pt-3" aria-hidden="true"><span class="h-1.5 w-10 rounded-full bg-gray-200"></span></div>
+
+    <header class="flex items-start gap-3 px-5 pt-3 pb-4 border-b border-gray-100">
+      <img id="oe-sheet-img" alt="" class="hidden h-16 w-16 flex-shrink-0 rounded-2xl object-cover">
+      <div class="min-w-0 flex-1">
+        <p id="oe-sheet-resto" class="truncate text-[11px] font-bold uppercase tracking-wider text-gray-400"></p>
+        <h2 id="oe-sheet-title" class="mt-0.5 text-lg font-extrabold leading-tight text-gray-900"></h2>
+        <p id="oe-sheet-desc" class="mt-0.5 line-clamp-2 text-xs text-gray-500"></p>
+      </div>
+      <button type="button" data-sheet-close aria-label="Fermer"
+              class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 active:scale-95 transition">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <div id="oe-sheet-body" class="flex-1 space-y-6 overflow-y-auto overscroll-contain px-5 py-5"></div>
+
+    <footer class="border-t border-gray-100 bg-white px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))]">
+      <p id="oe-sheet-error" role="alert" class="mb-2 hidden text-sm font-semibold text-red-600"></p>
+      <div class="flex items-center gap-3">
+        <div role="group" aria-label="Quantité" class="flex items-center rounded-2xl bg-gray-100 p-1">
+          <button type="button" data-qty="-1" aria-label="Retirer un plat"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-gray-900 shadow-sm active:scale-95 transition">−</button>
+          <span id="oe-sheet-qty" class="w-10 text-center text-base font-extrabold tabular-nums" aria-live="polite">1</span>
+          <button type="button" data-qty="1" aria-label="Ajouter un plat"
+                  class="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-xl font-bold text-gray-900 shadow-sm active:scale-95 transition">+</button>
+        </div>
+        <button id="oe-sheet-add" type="button"
+                class="flex h-14 min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl bg-brand px-3 text-[15px] font-extrabold text-white shadow-lg shadow-brand/30 transition active:scale-[.99] disabled:opacity-60">
+          <span>Ajouter</span>
+          <span aria-hidden="true">·</span>
+          <span id="oe-sheet-total" class="oe-total whitespace-nowrap tabular-nums">0</span>
+          <span>FCFA</span>
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

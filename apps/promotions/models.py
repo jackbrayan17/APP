@@ -87,14 +87,28 @@ class InfluencerProfile(TimeStampedModel):
 
 
 class PromoCode(TimeStampedModel):
-    """Code promo influenceur valable chez un restaurant partenaire."""
+    """Code promo influenceur. Cree par le restaurant, valide par ONE EAT avant mise en ligne."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "En attente de validation"
+        APPROVED = "approved", "Validé"
+        REJECTED = "rejected", "Refusé"
+
     influencer = models.ForeignKey(InfluencerProfile, on_delete=models.CASCADE,
                                    related_name="codes")
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE,
                                    related_name="promo_codes")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name="created_promo_codes")
     code = models.CharField(max_length=24, unique=True)
     percent = models.PositiveSmallIntegerField(default=10, help_text="Rabais en %")
-    is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING,
+                              db_index=True)
+    validated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                     null=True, blank=True, related_name="validated_promo_codes")
+    validated_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.CharField(max_length=160, blank=True)
+    is_active = models.BooleanField(default=True, help_text="Desactivation manuelle par l'equipe")
     starts_at = models.DateTimeField(default=timezone.now)
     ends_at = models.DateTimeField(null=True, blank=True)
     max_uses = models.PositiveIntegerField(default=0, help_text="0 = illimite")
@@ -114,7 +128,7 @@ class PromoCode(TimeStampedModel):
     @property
     def is_valid(self):
         now = timezone.now()
-        if not self.is_active:
+        if self.status != self.Status.APPROVED or not self.is_active:
             return False
         if self.ends_at and now > self.ends_at:
             return False

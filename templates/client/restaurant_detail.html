@@ -1,7 +1,7 @@
 {% extends "client/base.html" %}
 {% load static %}
 {% block title %}{{ resto.name }} — ONE EAT{% endblock %}
-{% block head %}<style>:root{ --resto:{{ resto.brand_color }}; --resto-50:{{ resto.accent_color }}; }</style>{% endblock %}
+{% block head %}<style>:root{ --resto:{{ resto.brand_color }}; --resto-50:{{ resto.accent_color }}; }.oe-tab{background:#f3f4f6;color:#4b5563}.oe-tab.is-active{background:var(--resto);color:#fff}</style>{% endblock %}
 
 {% block content %}
 <div x-data="{
@@ -26,7 +26,7 @@
     <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10"></div>
 
     <div class="absolute top-4 left-4 right-4 flex items-center justify-between">
-      <a href="{% url 'core:home' %}" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow">
+      <a href="{% url 'core:home' %}" data-oe-back aria-label="Retour" class="w-11 h-11 rounded-full bg-white flex items-center justify-center shadow">
         <svg class="w-6 h-6 text-gray-800" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
       </a>
       <div class="flex gap-2">
@@ -56,7 +56,6 @@
     <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 {% if resto.is_open_now %}bg-emerald-50 text-emerald-700{% else %}bg-gray-100 text-gray-600{% endif %}">
       <span class="h-2 w-2 rounded-full {% if resto.is_open_now %}bg-emerald-500{% else %}bg-gray-400{% endif %}"></span>{{ resto.opening_status_label }}</span>
     <span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">Livraison {{ resto.delivery_fee }} {{ CURRENCY }}</span>
-    {% if resto.min_order %}<span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">Minimum {{ resto.min_order }} {{ CURRENCY }}</span>{% endif %}
     {% if resto.neighborhood %}<span class="rounded-full bg-gray-100 px-3 py-1.5 text-gray-600">{{ resto.neighborhood }}</span>{% endif %}
   </div>
   {% if not resto.is_open_now %}
@@ -64,24 +63,28 @@
   {% endif %}
   {% if resto.bio %}<p class="px-5 pt-3 text-sm text-gray-500">{{ resto.bio }}</p>{% endif %}
 
-  <!-- Onglets sections -->
+  <!-- Onglets sections (en ligne) + barre flottante qui apparaît au scroll vers le haut -->
   {% if sections %}
-  <div class="sticky top-0 bg-white z-30 pt-3 pb-2 mt-2 border-b border-gray-50">
-    <div class="flex gap-2 overflow-x-auto no-scrollbar px-4">
+  <div id="oe-tabs-anchor" class="px-4 pt-3 mt-2">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar">
       {% for s in sections %}
-      <button @click="section='sec-{{ s.id }}'; document.getElementById('sec-{{ s.id }}').scrollIntoView({behavior:'smooth',block:'start'})"
-              :class="section==='sec-{{ s.id }}' ? 'text-white' : 'bg-gray-100 text-gray-600'"
-              :style="section==='sec-{{ s.id }}' ? 'background:{{ resto.brand_color }}' : ''"
-              class="flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition">{{ s.name }}</button>
+      <button type="button" class="oe-tab flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition" data-target="sec-{{ s.id }}">{{ s.name }}</button>
       {% endfor %}
     </div>
   </div>
+  <nav id="oe-tabbar" class="fixed top-0 left-1/2 z-40 w-full max-w-[480px] bg-white/95 backdrop-blur border-b border-gray-100 shadow-md transition-transform duration-300" style="transform:translate(-50%,-100%);padding-top:env(safe-area-inset-top)" aria-label="Catégories du menu">
+    <div class="flex gap-2 overflow-x-auto no-scrollbar px-4 py-2.5">
+      {% for s in sections %}
+      <button type="button" class="oe-tab flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold transition" data-target="sec-{{ s.id }}">{{ s.name }}</button>
+      {% endfor %}
+    </div>
+  </nav>
   {% endif %}
 
   <!-- Plats par section -->
   <div class="px-4 pb-6">
     {% for s in sections %}
-    <div id="sec-{{ s.id }}" class="pt-4 scroll-mt-20">
+    <div id="sec-{{ s.id }}" data-section class="pt-4 scroll-mt-20">
       <h2 class="font-extrabold text-lg text-gray-900 mb-1">{{ s.name }}</h2>
       {% for dish in s.dishes.all %}{% if dish.is_available %}
         {% include "client/_dish_row.html" with dish=dish %}
@@ -114,4 +117,46 @@
   </div>
   {% endif %}
 </div>
+<script>
+(function () {
+  var bar = document.getElementById('oe-tabbar');
+  var anchor = document.getElementById('oe-tabs-anchor');
+  if (!bar || !anchor) return;
+  var tabs = [].slice.call(document.querySelectorAll('.oe-tab'));
+  var sections = [].slice.call(document.querySelectorAll('[data-section]'));
+  var lastY = window.scrollY;
+  var shown = false;
+
+  function setBar(open) {
+    if (open === shown) return;
+    shown = open;
+    bar.style.transform = open ? 'translate(-50%,0)' : 'translate(-50%,-100%)';
+  }
+  function setActive(id) {
+    tabs.forEach(function (t) { t.classList.toggle('is-active', t.getAttribute('data-target') === id); });
+  }
+  function onScroll() {
+    var y = window.scrollY;
+    var dy = y - lastY;
+    var pastAnchor = anchor.getBoundingClientRect().bottom < 0;
+    if (dy < -4 && pastAnchor) setBar(true);
+    else if (dy > 4 || !pastAnchor) setBar(false);
+    lastY = y;
+    var current = null;
+    sections.forEach(function (s) { if (s.getBoundingClientRect().top <= 140) current = s.id; });
+    if (current) setActive(current);
+  }
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      var id = t.getAttribute('data-target');
+      var el = document.getElementById(id);
+      if (!el) return;
+      window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 120, behavior: 'smooth' });
+      setActive(id);
+    });
+  });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  if (tabs[0]) setActive(tabs[0].getAttribute('data-target'));
+})();
+</script>
 {% endblock %}

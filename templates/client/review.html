@@ -1,7 +1,7 @@
 {% extends "client/base.html" %}
 {% block title %}Noter — ONE EAT{% endblock %}
 {% block content %}
-<div class="px-4 pt-5" x-data="{ rating:5, driverRating:5 }">
+<div class="px-4 pt-5 md:mx-auto md:max-w-xl md:px-6 md:pt-8" x-data="{ rating:5, driverRating:5 }">
   <h1 class="text-2xl font-extrabold text-gray-900">Notez votre commande</h1>
   <p class="text-gray-500 mt-1">{{ order.restaurant.name }} • {{ order.number }}</p>
 

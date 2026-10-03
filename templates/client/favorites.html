@@ -3,14 +3,14 @@
 {% block content %}
 <div class="px-4 pt-5 pb-4">
   <div class="flex items-center gap-3">
-    <a href="{% url 'accounts:profile' %}" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
+    <a href="{% url 'accounts:profile' %}" data-oe-back aria-label="Retour" class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center">
       <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
     </a>
     <h1 class="text-xl font-extrabold text-gray-900">Mes favoris</h1>
   </div>
 
   {% if restaurants %}
-  <div class="mt-5 space-y-3">
+  <div class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3">
     {% for r in restaurants %}
       {% include "client/_restaurant_card.html" %}
     {% endfor %}

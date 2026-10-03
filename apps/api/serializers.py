@@ -1,19 +1,28 @@
 from rest_framework import serializers
 
 from apps.accounts.models import User
-from apps.restaurants.models import Restaurant, Category, MenuSection, Dish
+from apps.restaurants.models import Restaurant, Category, MenuSection, Dish, DishOption
 from apps.orders.models import Order, OrderItem, Review
 from apps.promotions.models import Promotion, PromoCode
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    sector = serializers.CharField(source="sector.name", read_only=True, default="")
+
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "emoji", "is_nav"]
+        fields = ["id", "name", "slug", "emoji", "is_nav", "sector"]
+
+
+class DishOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DishOption
+        fields = ["id", "group", "name", "price", "is_available"]
 
 
 class DishSerializer(serializers.ModelSerializer):
     current_price = serializers.IntegerField(read_only=True)
+    options = DishOptionSerializer(source="available_options", many=True, read_only=True)
     has_promo = serializers.BooleanField(read_only=True)
     image = serializers.SerializerMethodField()
     restaurant_id = serializers.IntegerField(source="restaurant.id", read_only=True)
@@ -28,7 +37,7 @@ class DishSerializer(serializers.ModelSerializer):
                   "restaurant_id", "restaurant_name", "restaurant_slug",
                   "restaurant_tagline", "is_diet", "calories", "protein_grams",
                   "carbs_grams", "fat_grams", "fiber_grams", "dietary_tags",
-                  "dietary_note", "diet_goals", "nutri_grade"]
+                  "dietary_note", "diet_goals", "nutri_grade", "options"]
 
     def get_image(self, obj):
         return obj.image.url if obj.image else ""
@@ -46,6 +55,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     logo = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     delivery_time_label = serializers.CharField(read_only=True)
+    sector_name = serializers.CharField(source="sector.name", read_only=True, default="")
 
     class Meta:
         model = Restaurant
@@ -53,7 +63,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
                   "logo", "cover_image", "neighborhood", "city", "lat", "lng",
                   "rating", "rating_count", "delivery_fee", "delivery_time_label",
                   "brand_color", "is_pro", "is_premium", "is_featured",
-                  "is_open_now", "opening_status_label", "min_order"]
+                  "is_open_now", "opening_status_label", "max_orders_per_day", "sector_name"]
 
     def get_logo(self, obj):
         return obj.logo.url if obj.logo else ""
@@ -160,8 +170,11 @@ class RegisterSerializer(serializers.Serializer):
 # Checkout / création de commande
 # ----------------------------------------------------------------------------
 class CartItemSerializer(serializers.Serializer):
-    dish_id = serializers.IntegerField()
-    quantity = serializers.IntegerField(min_value=1, default=1)
+    dish_id = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=50, default=1)
+    # Complements et supplements choisis (boissons, extras) : ids renvoyes par le plat.
+    option_ids = serializers.ListField(child=serializers.IntegerField(min_value=1),
+                                       required=False, default=list, max_length=20)
 
 
 class CheckoutSerializer(serializers.Serializer):

@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Inscription — ONE EAT{% endblock %}
 {% block body %}
-<div class="min-h-[100dvh] flex flex-col px-6 pt-12 pb-10">
+<div class="min-h-[100dvh] flex flex-col px-6 pt-12 pb-10 md:mx-auto md:w-full md:max-w-md md:pt-20">
   <div class="text-center">
     <img src="{% static 'icons/logo.png' %}?v=3" alt="ONE EAT" width="96" height="96" class="h-24 w-24 mx-auto">
     <h1 class="mt-4 text-2xl font-extrabold text-gray-900">Créer un compte</h1>
@@ -29,7 +29,7 @@
     </div>
     <div>
       <label class="text-sm font-semibold text-gray-700">Téléphone</label>
-      <input name="phone" placeholder="+237 6XX XXX XXX" class="mt-1.5 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <input name="phone" placeholder="+237 6XX XXX XXX" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" pattern="\+?[0-9 .\-()]{8,20}" title="8 à 15 chiffres, le + est accepté" class="mt-1.5 w-full px-4 py-3 rounded-xl bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand/30">
     </div>
     <div>
       <label class="text-sm font-semibold text-gray-700">Je suis</label>

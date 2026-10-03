@@ -26,6 +26,7 @@ urlpatterns = [
     path("checkout/", views.api_checkout, name="checkout"),
     path("orders/<str:number>/tracking/", views.api_order_tracking, name="order_tracking"),
     path("orders/<str:number>/review/", views.api_review_order, name="review_order"),
+    path("orders/<str:number>/validate/", views.api_validate_delivery, name="validate_delivery"),
     path("promo/validate/", views.api_validate_promo, name="validate_promo"),
 
     # Favoris

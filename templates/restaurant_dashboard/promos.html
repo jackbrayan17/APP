@@ -3,25 +3,29 @@
 {% block dash %}
 <h2 class="font-extrabold text-lg text-gray-900">Promotions</h2>
 
-<form method="post" class="mt-4 rounded-2xl bg-gray-50 p-4 space-y-3">
+<form method="post" class="mt-4 rounded-2xl bg-gray-50 p-4 md:p-5 space-y-3 max-w-3xl" x-data="{ all: false, type: 'percent' }">
   {% csrf_token %}
-  <input name="title" required placeholder="Thème de la promo (ex: Black Friday)" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
-  <textarea name="description" rows="2" placeholder="Description" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></textarea>
-  <div class="grid grid-cols-2 gap-3">
-    <select name="discount_type" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+  <input name="title" required maxlength="120" placeholder="Thème de la promo (ex: Black Friday)" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+  <textarea name="description" rows="2" maxlength="500" placeholder="Description" class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></textarea>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <select name="discount_type" x-model="type" class="min-w-0 px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
       <option value="percent">Pourcentage (-%)</option>
       <option value="amount">Réduction fixe (-FCFA)</option>
       <option value="fixed_price">Prix promo (FCFA)</option>
     </select>
-    <input name="discount_value" type="number" required placeholder="Valeur (ex 50, 75)" class="px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+    <input name="discount_value" type="number" inputmode="numeric" required step="1" min="1" :max="type === 'percent' ? 100 : 1000000" title="Pourcentage : entier de 1 à 100. Montant : entier FCFA" placeholder="Valeur (ex 50, 75)" class="min-w-0 px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
   </div>
   <label class="block text-sm font-semibold text-gray-700">Fin de la promo
     <input name="ends_at" type="datetime-local" class="mt-1 w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></label>
   <div>
-    <p class="text-sm font-semibold text-gray-700 mb-1">Plats concernés</p>
-    <div class="max-h-40 overflow-y-auto space-y-1 bg-white rounded-xl p-2 border border-gray-200">
+    <label class="flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-3 text-sm font-bold text-gray-900">
+      <input type="checkbox" name="all_dishes" value="on" x-model="all" class="accent-[#FF6B1A] h-4 w-4">
+      Appliquer à tous les plats ({{ dishes|length }})
+    </label>
+    <p class="text-sm font-semibold text-gray-700 mt-3 mb-1">Ou choisir les plats concernés</p>
+    <div class="max-h-40 overflow-y-auto space-y-1 bg-white rounded-xl p-2 border border-gray-200" :class="all && 'opacity-40 pointer-events-none'">
       {% for d in dishes %}
-      <label class="flex items-center gap-2 text-sm p-1"><input type="checkbox" name="dishes" value="{{ d.id }}"> {{ d.name }} — {{ d.price }} FCFA</label>
+      <label class="flex items-center gap-2 text-sm p-1"><input type="checkbox" name="dishes" value="{{ d.id }}" :disabled="all"> {{ d.name }} — {{ d.price }} FCFA</label>
       {% endfor %}
     </div>
   </div>
@@ -40,4 +44,52 @@
   </div>
   {% empty %}<p class="text-gray-400 text-center py-8 text-sm">Aucune promotion.</p>{% endfor %}
 </div>
+
+<section class="mt-10">
+  <h2 class="font-extrabold text-lg text-gray-900">Codes influenceurs</h2>
+  <p class="text-sm text-gray-500 mt-1">Choisissez un influenceur ONE EAT et créez son code. Le code est mis en ligne après validation par l'équipe ONE EAT.</p>
+
+  {% if influencers %}
+  <form method="post" action="{% url 'promotions:restaurant_code_create' %}" class="mt-4 rounded-2xl bg-gray-50 p-4 space-y-3">
+    {% csrf_token %}
+    <select name="influencer" required class="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+      <option value="">Choisir un influenceur…</option>
+      {% for inf in influencers %}
+      <option value="{{ inf.id }}">{{ inf.handle|default:inf.user.display_name }} — {{ inf.followers }} abonnés</option>
+      {% endfor %}
+    </select>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <input name="code" maxlength="24" pattern="[A-Za-z0-9]{3,24}" title="Lettres et chiffres uniquement (3 à 24)" placeholder="CODE (auto si vide)" class="min-w-0 col-span-1 px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none uppercase">
+      <input name="percent" type="number" inputmode="numeric" min="1" max="100" step="1" value="10" title="Entier entre 1 et 100 %" placeholder="%" class="min-w-0 px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+      <input name="max_uses" type="number" inputmode="numeric" min="0" max="1000000" step="1" value="0" title="0 = illimité" placeholder="Max (0=∞)" class="min-w-0 px-3 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none">
+    </div>
+    <label class="block text-sm font-semibold text-gray-700">Fin du code (optionnel)
+      <input name="ends_at" type="datetime-local" class="mt-1 w-full px-4 py-3 rounded-xl bg-white border border-gray-200 focus:outline-none"></label>
+    <button class="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">Envoyer à ONE EAT pour validation</button>
+  </form>
+  {% else %}
+  <p class="mt-4 rounded-2xl bg-gray-50 p-4 text-sm text-gray-500">Aucun influenceur inscrit pour le moment.</p>
+  {% endif %}
+
+  <div class="mt-4 space-y-2">
+    {% for c in influencer_codes %}
+    <div class="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 p-4">
+      <div class="min-w-0">
+        <p class="font-extrabold tracking-wider text-gray-900">{{ c.code }}</p>
+        <p class="text-xs text-gray-500 truncate">{{ c.influencer.handle|default:c.influencer.user.display_name }} • -{{ c.percent }}% • {{ c.uses }} utilisation(s)</p>
+        {% if c.status == 'rejected' and c.rejection_reason %}<p class="text-xs text-red-600 mt-1">Motif : {{ c.rejection_reason }}</p>{% endif %}
+      </div>
+      {% if c.status == 'pending' %}
+        <span class="flex-shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">En attente</span>
+      {% elif c.status == 'approved' and c.is_valid %}
+        <span class="flex-shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Actif</span>
+      {% elif c.status == 'approved' %}
+        <span class="flex-shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-bold text-gray-500">Inactif</span>
+      {% else %}
+        <span class="flex-shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-600">Refusé</span>
+      {% endif %}
+    </div>
+    {% empty %}<p class="text-gray-400 text-center py-6 text-sm">Aucun code influenceur.</p>{% endfor %}
+  </div>
+</section>
 {% endblock %}

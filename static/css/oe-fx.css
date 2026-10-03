@@ -1,0 +1,73 @@
+/* ONE EAT — animations sobres et lisibles.
+   - Catégories : aucune animation d'entrée, simple retour d'appui au toucher.
+   - Image du plat : entrée nette (zoom + flou -> net), pilotée par JS pour rester
+     calée sur le son (voir oe-fx.js). Ces règles servent de repli sans JS. */
+
+/* ---- Catégories : appui + animation contextuelle au clic ---- */
+.oe-press { transition: transform .12s ease; }
+.oe-press:active { transform: scale(.94); }
+.oe-press [data-fx-icon] { transform-origin: 50% 90%; }
+
+.oe-fx-burger  { animation: oeBurgerShake .7s ease; }
+.oe-fx-grill   { animation: oeGrill .6s ease; }
+.oe-fx-bubble  { animation: oeBubble .9s ease; }
+.oe-fx-slide   { animation: oeSlide .8s cubic-bezier(.3,1.3,.5,1); }
+.oe-fx-leaf    { animation: oeLeaf 1s ease; }
+.oe-fx-pour    { animation: oePour .8s ease; }
+.oe-fx-steam   { animation: oeSteam 1s ease; }
+.oe-fx-crunch  { animation: oeCrunch .6s ease; }
+.oe-fx-spin    { animation: oeSpin .8s cubic-bezier(.3,1.4,.5,1); }
+
+/* Burger : deux moitiés qui s'écartent */
+.oe-burger-split { position: absolute; inset: 0; pointer-events: none; }
+.oe-half { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.oe-half-top { clip-path: inset(0 0 50% 0); animation: oeTopOpen 1.1s ease both; }
+.oe-half-bot { clip-path: inset(50% 0 0 0); animation: oeBotOpen 1.1s ease both; }
+@keyframes oeTopOpen { 0%,100% { transform: translateY(0) rotate(0); } 35%,65% { transform: translateY(-22%) rotate(-7deg); } }
+@keyframes oeBotOpen { 0%,100% { transform: translateY(0) rotate(0); } 35%,65% { transform: translateY(22%) rotate(7deg); } }
+@keyframes oeBurgerShake { 0%,100% { transform: none; } 20% { transform: rotate(-6deg) scale(1.05); } 45% { transform: rotate(5deg); } 70% { transform: rotate(-2deg); } }
+
+@keyframes oeGrill { 0%,100% { transform: none; filter: none; } 20% { transform: translate(-2px,0) rotate(-4deg); filter: brightness(1.25) saturate(1.3); } 40% { transform: translate(2px,-1px) rotate(4deg); } 60% { transform: translate(-1px,0) rotate(-2deg); filter: brightness(1.15); } 80% { transform: translate(1px,0) rotate(2deg); } }
+@keyframes oeBubble { 0%,100% { transform: scale(1); } 15% { transform: translateY(-5px) scale(1.04, .96); } 30% { transform: translateY(0) scale(.96, 1.04); } 45% { transform: translateY(-7px) scale(1.06, .94); } 60% { transform: translateY(0) scale(1); } 75% { transform: translateY(-3px); } }
+@keyframes oeSlide { 0% { transform: none; } 30% { transform: translateX(-16px) rotate(-12deg); } 60% { transform: translateX(8px) rotate(6deg); } 80% { transform: translateX(-3px) rotate(-2deg); } 100% { transform: none; } }
+@keyframes oeLeaf { 0%,100% { transform: skewX(0) scale(1); } 25% { transform: skewX(-8deg) scale(1.06); } 50% { transform: skewX(6deg) scale(1.03); } 75% { transform: skewX(-3deg); } }
+@keyframes oePour { 0%,100% { transform: rotate(0); } 30% { transform: rotate(-16deg); } 60% { transform: rotate(-16deg) translateY(-2px); } }
+@keyframes oeSteam { 0% { transform: translateY(0) scale(1); } 50% { transform: translateY(-6px) scale(1.08); } 100% { transform: translateY(0) scale(1); } }
+@keyframes oeCrunch { 0% { transform: scale(1,1); } 25% { transform: scale(1.15,.8); } 50% { transform: scale(.9,1.12); } 75% { transform: scale(1.05,.97); } 100% { transform: none; } }
+@keyframes oeSpin { 0% { transform: rotate(0) scale(1); } 100% { transform: rotate(360deg) scale(1); } }
+
+/* ---- Image du plat : entrée visible ---- */
+.oe-dish-enter {
+  animation: oeDishEnter .9s cubic-bezier(.16, 1, .3, 1) both;
+}
+@keyframes oeDishEnter {
+  from { opacity: 0; transform: translateY(14px) scale(1.12); filter: blur(10px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* ---- Rails de plats : entrée franche et décalée ---- */
+.oe-rail { scroll-snap-type: x mandatory; scroll-behavior: smooth; overscroll-behavior-x: contain; }
+.oe-rail > * { scroll-snap-align: start; }
+@keyframes oeCardIn {
+  from { opacity: 0; transform: translateY(18px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+.oe-card-in { animation: oeCardIn .52s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+.oe-card-in:active { transform: scale(.97); }
+
+/* ---- Diaporama promos ---- */
+.oe-slide { transition: opacity .6s ease; }
+.oe-slide.is-active { opacity: 1; z-index: 1; }
+
+.oe-dot { width: 7px; height: 7px; border-radius: 9999px; background: #e5e7eb; transition: all .3s; }
+.oe-dot.is-active { width: 22px; background: #FF6B1A; }
+
+/* ---- Bouton son / langue ---- */
+.oe-pill { transition: transform .15s; }
+.oe-pill:active { transform: scale(.92); }
+
+@media (prefers-reduced-motion: reduce) {
+  .oe-card-in, .oe-dish-enter, .oe-half, [class*="oe-fx-"] { animation: none !important; }
+  .oe-press:active { transform: none; }
+  .oe-rail { scroll-behavior: auto; }
+}

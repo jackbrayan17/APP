@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Restaurant, RestaurantPhoto, MenuSection, Dish
+from .models import Category, Sector, Restaurant, RestaurantPhoto, MenuSection, Dish
 
 
 class DishInline(admin.TabularInline):
@@ -18,10 +18,17 @@ class PhotoInline(admin.TabularInline):
     extra = 1
 
 
+@admin.register(Sector)
+class SectorAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "icon", "order")
+    list_editable = ("order", "icon")
+
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("emoji", "name", "order", "is_nav")
-    list_editable = ("order", "is_nav")
+    list_display = ("sector", "name", "order")
+    list_filter = ("sector",)
+    list_editable = ("order",)
 
 
 @admin.register(Restaurant)
@@ -32,7 +39,6 @@ class RestaurantAdmin(admin.ModelAdmin):
     search_fields = ("name", "owner__username")
     prepopulated_fields = {"slug": ("name",)}
     inlines = [MenuSectionInline, DishInline, PhotoInline]
-    filter_horizontal = ("categories",)
 
 
 @admin.register(Dish)
