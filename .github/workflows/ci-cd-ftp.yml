@@ -43,6 +43,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Write runtime secrets (.env)
+        env:
+          NOTCHPAY_PUBLIC_KEY: ${{ secrets.NOTCHPAY_PUBLIC_KEY }}
+          NOTCHPAY_SECRET_KEY: ${{ secrets.NOTCHPAY_SECRET_KEY }}
+          NOTCHPAY_HASH_KEY: ${{ secrets.NOTCHPAY_HASH_KEY }}
+        run: |
+          {
+            echo "NOTCHPAY_PUBLIC_KEY=${NOTCHPAY_PUBLIC_KEY}"
+            echo "NOTCHPAY_SECRET_KEY=${NOTCHPAY_SECRET_KEY}"
+            echo "NOTCHPAY_HASH_KEY=${NOTCHPAY_HASH_KEY}"
+            echo "SITE_URL=https://oneeat.cm"
+          } > .env
+
       - name: Build release archive
         run: |
           echo "${{ github.sha }}" > RELEASE
