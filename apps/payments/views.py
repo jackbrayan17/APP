@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseBadRequest
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -161,3 +161,26 @@ def request_payout(request):
         logger.exception("Echec du virement NotchPay pour le retrait #%s", payout.id)
         messages.error(request, "Le virement n'a pas pu être initié. Réessayez plus tard.")
     return redirect(referer)
+
+
+# --- Diagnostic temporaire (reserve admin) : verifier depuis l'IP serveur reelle que
+# /transfers passe la liste blanche NotchPay. A retirer apres verification. ---
+@login_required
+def diagnostic_transfer(request):
+    if not request.user.is_staff:
+        messages.error(request, "Réservé aux administrateurs.")
+        return redirect("core:home")
+    result = None
+    if request.method == "POST":
+        try:
+            ben = services.create_beneficiary(name="Diag ONE EAT", phone="237694103585",
+                                              channel="cm.orange", reference="diag_ben")
+            ben_id = services.extract_reference(ben.get("beneficiary")) or str(
+                ben.get("beneficiary"))
+            transfer = services.create_transfer(amount=100, currency="XAF", beneficiary_id=ben_id,
+                                                description="Diag transfer ONE EAT",
+                                                reference="diag_transfer_1")
+            result = {"ok": True, "beneficiary": ben, "transfer": transfer}
+        except services.NotchPayError as exc:
+            result = {"ok": False, "error": str(exc)}
+    return render(request, "payments/diagnostic.html", {"result": result})

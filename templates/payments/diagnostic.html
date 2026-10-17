@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Diagnostic NotchPay{% endblock %}
+{% block body %}
+<div class="mx-auto max-w-2xl px-5 py-10">
+  <h1 class="text-xl font-extrabold text-gray-900">Diagnostic virement NotchPay</h1>
+  <p class="mt-2 text-sm text-gray-500">Déclenche un virement réel de 100 FCFA vers 694103585 via l'API NotchPay, exécuté depuis ce serveur (pour vérifier la liste blanche IP). Réservé admin — à supprimer après usage.</p>
+  <form method="post" class="mt-4">
+    {% csrf_token %}
+    <button type="submit" class="rounded-xl bg-gray-900 px-5 py-3 text-sm font-bold text-white">Lancer le test</button>
+  </form>
+  {% if result %}
+  <pre class="mt-6 overflow-auto rounded-xl bg-gray-900 p-4 text-xs text-white">{{ result }}</pre>
+  {% endif %}
+</div>
+{% endblock %}
