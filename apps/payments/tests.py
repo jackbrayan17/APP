@@ -27,10 +27,10 @@ class WebhookSignatureTests(TestCase):
         self.assertFalse(services.verify_signature(b"{}", ""))
 
 
+@override_settings(NOTCHPAY_HASH_KEY="hsk_test_dummy")
 class WebhookEndpointTests(TestCase):
     def _sign(self, body: bytes) -> str:
-        from django.conf import settings
-        return hmac.new(settings.NOTCHPAY_HASH_KEY.encode(), body, hashlib.sha256).hexdigest()
+        return hmac.new(b"hsk_test_dummy", body, hashlib.sha256).hexdigest()
 
     def test_payment_complete_marks_transaction_paid(self):
         txn = Transaction.objects.create(reference="pay_test_1", amount=1000, currency="XAF")
