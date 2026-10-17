@@ -2,14 +2,18 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
+from django.utils.crypto import get_random_string
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Address
 from apps.core.inputs import clean_float
+from apps.payments import services as payment_services
+from apps.payments.models import Transaction
 from apps.restaurants.models import Dish
 from .models import Order, Review
-from .services import (PAYMENT_CHOICES, CheckoutError, build_cart_groups, create_orders,
-                       reorder_lines, resolve_cart_lines, line_key)
+from .services import (PAYMENT_CHOICES, CheckoutError, build_cart_groups,
+                       create_orders, reorder_lines, resolve_cart_lines, line_key)
 from .workflow import TransitionError, confirm_mobile_money, customer_cancel, customer_validate
 
 
@@ -154,10 +158,12 @@ def checkout(request):
 
 @login_required
 def payment(request, number):
-    """Validation Mobile Money (simulee pour la demo : aucun debit reel)."""
+    """Paiement reel via NotchPay : redirection vers la page sécurisée (carte/Mobile Money),
+    confirmee cote serveur par le webhook NotchPay (voir apps.payments)."""
     order = get_object_or_404(Order.objects.select_related("restaurant"),
                               number=number, customer=request.user)
     if not order.is_awaiting_payment:
+        messages.success(request, "Paiement confirmé ✅ Le restaurant a reçu votre commande.")
         return redirect("orders:detail", number=number)
     batch = request.session.get("pay_batch") or []
     numbers = batch if number in batch else [number]
@@ -165,22 +171,49 @@ def payment(request, number):
                                         status=Order.Status.PENDING,
                                         payment_status=Order.PaymentStatus.PENDING)
                    .select_related("restaurant"))
+    if not pending:
+        return redirect("orders:detail", number=number)
+
     if request.method == "POST":
         if request.POST.get("action") == "cancel":
             for o in pending:
-                customer_cancel(o, "Paiement Mobile Money abandonné.")
+                customer_cancel(o, "Paiement abandonné par le client.")
+            Transaction.objects.filter(orders__in=pending,
+                                       status=Transaction.Status.PENDING).update(
+                                       status=Transaction.Status.CANCELLED)
             messages.info(request, "Paiement abandonné, commande annulée.")
             return redirect("orders:list")
-        for o in pending:
-            confirm_mobile_money(o)
-        messages.success(request, "Paiement confirmé ✅ Le restaurant a reçu votre commande.")
-        if len(pending) > 1:
-            return redirect("orders:list")
-        return redirect("orders:detail", number=number)
+        return redirect("orders:payment", number=number)
+
+    amount = sum(o.total for o in pending)
+    txn = (Transaction.objects.filter(orders__in=pending, status=Transaction.Status.PENDING)
+           .order_by("-created_at").first())
+    if txn is None:
+        reference = f"pay_{number}_{get_random_string(8).lower()}"
+        phone = order.payment_phone or request.user.phone
+        callback_url = request.build_absolute_uri(reverse("orders:payment", args=[number]))
+        try:
+            resp = payment_services.create_payment(
+                amount=amount, currency="XAF", reference=reference, callback_url=callback_url,
+                email=request.user.email or None,
+                phone=payment_services.to_international_cm(phone) if phone else None,
+                description=f"Commande ONE EAT {', '.join(numbers)}")
+        except payment_services.NotchPayError:
+            messages.error(request, "Le paiement n'a pas pu être initié. Réessayez.")
+            return redirect("orders:cart")
+        txn = Transaction.objects.create(
+            reference=reference,
+            notchpay_reference=payment_services.extract_reference(resp.get("transaction")),
+            amount=amount, currency="XAF", phone=phone,
+            authorization_url=resp.get("authorization_url", ""))
+        txn.orders.set(pending)
+        if txn.authorization_url:
+            return redirect(txn.authorization_url)
+    # Transaction deja initiee (retour du callback NotchPay, ou rafraichissement de page) :
+    # on affiche une page d'attente qui interroge le statut, la confirmation reelle vient du webhook.
     return render(request, "client/payment.html", {
-        "order": order, "orders": pending,
-        "amount": sum(o.total for o in pending),
-        "ussd": "*126#" if order.payment_method == "momo" else "#150*50#",
+        "order": order, "orders": pending, "amount": amount,
+        "authorization_url": txn.authorization_url,
     })
 
 
@@ -229,6 +262,8 @@ def order_status_json(request, number):
         "text": order.customer_status_text, "step": order.progress_step,
         "driver": order.driver.display_name if order.driver else None,
         "updated": order.updated_at.isoformat(),
+        "payment_status": order.payment_status,
+        "awaiting_payment": order.is_awaiting_payment,
     })
 
 

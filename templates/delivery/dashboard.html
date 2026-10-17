@@ -46,6 +46,35 @@
     </div>
   </section>
 
+  <!-- Retrait Mobile Money -->
+  <section class="rounded-3xl border border-gray-100 p-4 mt-4" x-data="{ open:false }">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Solde disponible</p>
+        <p class="mt-0.5 text-2xl font-black tabular text-gray-900">{{ available_balance|intcomma }} FCFA</p>
+      </div>
+      <button type="button" @click="open = !open" class="rounded-xl bg-brand px-4 py-2.5 text-sm font-bold text-white shadow shadow-brand/30">Retirer</button>
+    </div>
+    <form x-show="open" x-cloak method="post" action="{% url 'payments:request_payout' %}" class="mt-4 space-y-2">
+      {% csrf_token %}
+      <select name="channel" class="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold">
+        <option value="cm.mtn">MTN Mobile Money</option>
+        <option value="cm.orange">Orange Money</option>
+      </select>
+      <input name="phone" type="tel" required maxlength="20" placeholder="Numéro à créditer (6XX XX XX XX)" value="{{ profile.phone }}" class="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold">
+      <input name="amount" type="number" min="1" max="{{ available_balance }}" required placeholder="Montant (max {{ available_balance|intcomma }} FCFA)" class="w-full rounded-xl bg-gray-100 px-4 py-3 text-sm font-semibold">
+      <button type="submit" class="w-full rounded-xl bg-gray-900 py-3 text-sm font-bold text-white">Confirmer le retrait</button>
+    </form>
+    {% if payouts %}
+    <ul class="mt-4 space-y-1.5 text-xs">
+      {% for p in payouts %}
+      <li class="flex justify-between text-gray-500"><span>{{ p.created_at|date:"d/m H:i" }} · {{ p.phone }}</span>
+        <span class="font-semibold {% if p.status == 'paid' %}text-emerald-600{% elif p.status == 'failed' %}text-red-500{% else %}text-amber-600{% endif %}">{{ p.amount|intcomma }} FCFA · {{ p.get_status_display }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
   {% if mission %}
   <!-- Mission en cours -->
   {% with o=mission %}

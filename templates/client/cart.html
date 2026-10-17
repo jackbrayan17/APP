@@ -95,7 +95,7 @@
         {% for value, label, hint in payment_choices %}
         <label class="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition" :class="pay=='{{ value }}' ? 'border-brand bg-brand-50/60' : 'border-gray-200'">
           <input type="radio" name="payment_method" value="{{ value }}" x-model="pay" class="accent-[#FF6B1A]">
-          <span class="flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-black {% if value == 'momo' %}bg-yellow-400 text-gray-900{% elif value == 'om' %}bg-orange-500 text-white{% else %}bg-emerald-100 text-emerald-700{% endif %}">{% if value == 'momo' %}MTN{% elif value == 'om' %}OM{% else %}CFA{% endif %}</span>
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-black {% if value == 'momo' %}bg-yellow-400 text-gray-900{% elif value == 'om' %}bg-orange-500 text-white{% elif value == 'card' %}bg-indigo-100 text-indigo-700{% else %}bg-emerald-100 text-emerald-700{% endif %}">{% if value == 'momo' %}MTN{% elif value == 'om' %}OM{% elif value == 'card' %}CB{% else %}CFA{% endif %}</span>
           <span><span class="block text-sm font-bold text-gray-900">{{ label }}</span><span class="block text-xs text-gray-500">{{ hint }}</span></span>
         </label>
         {% endfor %}

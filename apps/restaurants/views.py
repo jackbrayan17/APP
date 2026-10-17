@@ -16,6 +16,7 @@ from apps.core.inputs import clean_float, clean_int, clean_phone
 from apps.orders.models import Order, OrderItem
 from apps.orders.workflow import (RESTAURANT_ACTIONS, TransitionError, restaurant_action,
                                   restaurant_next_actions)
+from apps.payments.wallet import restaurant_available_balance
 from apps.promotions.models import Promotion
 from .models import (WEEKDAYS, Restaurant, Sector, Category, MenuSection, Dish, DishOption,
                      RestaurantPhoto, Favorite)
@@ -184,6 +185,8 @@ def dashboard(request):
         "revenue_periods": revenue_periods, "commission": commission,
         "chart": chart, "top_dishes": top_dishes,
         "recent_reviews": resto.reviews.select_related("customer")[:3],
+        "available_balance": restaurant_available_balance(resto),
+        "payouts": resto.payouts.all()[:10],
     }
     return render(request, "restaurant_dashboard/home.html", context)
 

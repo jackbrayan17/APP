@@ -4,7 +4,10 @@ Django settings for ONE EAT — plateforme de livraison de repas (Douala, Camero
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",
@@ -48,6 +51,7 @@ INSTALLED_APPS = [
     "apps.orders",
     "apps.delivery",
     "apps.promotions",
+    "apps.payments",
 ]
 
 MIDDLEWARE = [
@@ -157,6 +161,15 @@ DEFAULT_COUNTRY = "Cameroun"
 X_FRAME_OPTIONS = "SAMEORIGIN"
 CURRENCY = "FCFA"
 PLATFORM_COMMISSION_PERCENT = int(os.environ.get("PLATFORM_COMMISSION_PERCENT", "10"))
+
+# --- NotchPay (paiements carte / Mobile Money + virements restaurants/livreurs) ---
+# Cles lues depuis l'environnement (.env en local, variables d'env cPanel en prod) :
+# ne jamais committer de vraies cles dans le depot.
+SITE_URL = os.environ.get("SITE_URL", "https://oneeat.cm")
+NOTCHPAY_PUBLIC_KEY = os.environ.get("NOTCHPAY_PUBLIC_KEY", "")
+NOTCHPAY_SECRET_KEY = os.environ.get("NOTCHPAY_SECRET_KEY", "")
+NOTCHPAY_HASH_KEY = os.environ.get("NOTCHPAY_HASH_KEY", "")
+NOTCHPAY_BASE_URL = "https://api.notchpay.co"
 
 # Centre de Douala (lat, lng) pour la carte par defaut
 DOUALA_CENTER = {"lat": 4.0511, "lng": 9.7679}

@@ -12,13 +12,16 @@ from apps.restaurants.models import Dish, DishOption, Restaurant
 from .models import Order, OrderItem
 from .workflow import announce_new_order
 
-# Moyens de paiement proposes dans le MVP (carte bancaire : version ulterieure).
+# Moyens de paiement proposes au checkout.
 PAYMENT_CHOICES = [
     ("cash", "Espèces à la livraison", "Payez le livreur à la réception"),
     ("momo", "MTN Mobile Money", "Validation sur votre téléphone"),
     ("om", "Orange Money", "Validation sur votre téléphone"),
+    ("card", "Carte bancaire", "Paiement sécurisé par carte"),
 ]
 MOBILE_MONEY = {"momo", "om"}
+# Moyens payes en ligne via NotchPay (redirection + webhook) avant transmission au restaurant.
+ONLINE_PAYMENT = {"momo", "om", "card"}
 
 
 class CheckoutError(Exception):
@@ -154,7 +157,7 @@ def create_orders(user, lines, *, address, lat=None, lng=None, payment_method="c
             delivery_lat=_coord(lat), delivery_lng=_coord(lng),
             payment_method=payment_method,
             payment_phone=payment_phone.strip()[:20] if payment_method in MOBILE_MONEY else "",
-            payment_status=(Order.PaymentStatus.PENDING if payment_method in MOBILE_MONEY
+            payment_status=(Order.PaymentStatus.PENDING if payment_method in ONLINE_PAYMENT
                             else Order.PaymentStatus.ON_DELIVERY),
             delivery_fee=resto.delivery_fee,
         )

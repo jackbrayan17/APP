@@ -15,6 +15,7 @@ from apps.orders.models import Order
 from apps.orders.qr import delivery_qr_data_uri
 from apps.orders.workflow import (TransitionError, driver_arrive, driver_claim, driver_pickup,
                                   mission_offers)
+from apps.payments.wallet import driver_available_balance
 from .models import DriverProfile
 
 OFFER_SECONDS = 30  # delai de reponse a une mission (cahier des charges 5.2)
@@ -73,6 +74,8 @@ def dashboard(request):
         "offer_seconds": OFFER_SECONDS, "history": history,
         "earnings": {k: prof.earnings_since(v) for k, v in starts.items()},
         "earnings_total": prof.earnings_since(),
+        "available_balance": driver_available_balance(request.user),
+        "payouts": request.user.payouts.all()[:10],
         "map_orders_json": json.dumps(map_orders),
         "map_center_json": json.dumps([float(center_lat), float(center_lng)]),
         "service_radius_m": int(prof.service_radius_km * 1000),

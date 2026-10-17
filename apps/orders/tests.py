@@ -115,8 +115,10 @@ class OrderFlowTests(TestCase):
         self.client.force_login(self.resto.owner)
         r = self.client.get(reverse("restaurants:orders") + "?tab=new")
         self.assertNotContains(r, order.number)
-        self.client.force_login(self.client_user)
-        self.client.post(reverse("orders:payment", args=[order.number]), {"action": "confirm"})
+        # La confirmation reelle vient desormais du webhook NotchPay (voir apps.payments),
+        # qui appelle confirm_mobile_money() une fois le paiement NotchPay valide.
+        from apps.orders.workflow import confirm_mobile_money
+        confirm_mobile_money(order)
         order.refresh_from_db()
         self.assertEqual(order.payment_status, Order.PaymentStatus.PAID)
 
