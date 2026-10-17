@@ -160,6 +160,9 @@ class PromoCheckoutTests(TestCase):
         cls.user = User.objects.create_user("promo@test.cm", "promo@test.cm", "pass12345",
                                             phone="+237690000021")
         cls.resto = Restaurant.objects.get(name="Le Ndolé d'Or")
+        # Horaires reels (flakiness selon l'heure d'execution) : force ouvert 24h/24 pour le test.
+        cls.resto.opening_hours = {str(i): ["00:00", "23:59"] for i in range(7)}
+        cls.resto.save()
         cls.dish = cls.resto.dishes.first()
         inf_user = User.objects.create_user("inf@test.cm", "inf@test.cm", "pass12345")
         profile = InfluencerProfile.objects.create(user=inf_user, handle="@test")
@@ -214,6 +217,9 @@ class DishOptionTests(TestCase):
         cls.user = User.objects.create_user("opt@test.cm", "opt@test.cm", "pass12345",
                                             phone="+237690000031")
         cls.resto = Restaurant.objects.get(name="Le Ndolé d'Or")
+        # Horaires reels (flakiness selon l'heure d'execution) : force ouvert 24h/24 pour le test.
+        cls.resto.opening_hours = {str(i): ["00:00", "23:59"] for i in range(7)}
+        cls.resto.save()
         cls.dish = cls.resto.dishes.first()
         cls.drink = DishOption.objects.create(dish=cls.dish, group="Boissons", name="Coca-Cola 33cl", price=500)
         cls.extra = DishOption.objects.create(dish=cls.dish, group="Suppléments", name="Plantain", price=300)
